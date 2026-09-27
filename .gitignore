@@ -1,0 +1,29 @@
+# Credentials and machine-local configuration
+.env
+.env.*
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+.ssh/
+# Generated files, data and local dependencies
+__pycache__/
+node_modules/
+.venv/
+build/
+install/
+log/
+*.bag
+*.db3
+*.mcap
+*.zip
+*.pcap
+*.pcapng
+.DS_Store
+Thumbs.db
+
+# Local project journals; never publish
+/日志/
+
+# Private planning notes; never publish
+/本地资料/
