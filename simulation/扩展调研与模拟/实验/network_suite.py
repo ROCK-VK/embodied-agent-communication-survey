@@ -40,7 +40,7 @@ def main():
                     run(inside('sender','tc qdisc replace dev eth0 root netem delay 25ms 5ms loss 12% rate 512kbit'))
                 qdisc=run(inside('sender','tc -s qdisc show dev eth0'),capture_output=True)
                 log=(PRIVATE/(case+'.log')).open('w',encoding='utf-8')
-                command='source /opt/ros/noetic/setup.bash; python3 /project/下一阶段/实验/netnode.py receiver --mode '+mode+' --case '+case
+                command='source /opt/ros/noetic/setup.bash; python3 /project/扩展调研与模拟/实验/netnode.py receiver --mode '+mode+' --case '+case
                 if profile=='reconnect':command+=' --reconnect'
                 receiver=subprocess.Popen(inside('receiver',command),stdout=log,stderr=subprocess.STDOUT)
                 try:
@@ -49,7 +49,7 @@ def main():
                         if receiver.poll() is not None:raise RuntimeError('receiver exited: '+case)
                         if time.monotonic()>deadline:raise TimeoutError('receiver startup: '+case)
                         time.sleep(.05)
-                    run(inside('sender','source /opt/ros/noetic/setup.bash; python3 /project/下一阶段/实验/netnode.py sender --mode '+mode+' --case '+case),stdout=log,stderr=subprocess.STDOUT,timeout=120)
+                    run(inside('sender','source /opt/ros/noetic/setup.bash; python3 /project/扩展调研与模拟/实验/netnode.py sender --mode '+mode+' --case '+case),stdout=log,stderr=subprocess.STDOUT,timeout=120)
                     assert receiver.wait(timeout=15)==0,case
                 finally:
                     if receiver.poll() is None:receiver.terminate();receiver.wait(10)

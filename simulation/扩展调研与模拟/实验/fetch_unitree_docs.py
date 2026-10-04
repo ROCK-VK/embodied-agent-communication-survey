@@ -8,7 +8,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 PRIVATE=ROOT/'日志/下一阶段'
-PUBLIC=ROOT/'下一阶段/结果'
+PUBLIC=ROOT/'扩展调研与模拟/结果'
 SELECT={'module_update','Quick_start','network service','DDS Application','Architecture Description','Obtain SDK','Creating_customer_applications'}
 
 class Text(HTMLParser):

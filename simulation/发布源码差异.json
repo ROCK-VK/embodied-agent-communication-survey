@@ -1,15 +1,25 @@
 {
-  "verification": "Full experiment results come from the original locally tested sources. The report and its generator template have since been revised together to state the next-week research and local simulation plan. The full simulation was not rerun.",
+  "verification": "The experiment result files are from the original locally tested sources. The result folder was renamed from 下一阶段 to 扩展调研与模拟 and path-dependent entrypoints were updated; the report now links the next-week computer-only research and simulation plan. The complete simulation has not been rerun after relocation.",
   "changes": [
     {
-      "path": "下一阶段/实验/build_phase2_report.py",
+      "path": "扩展调研与模拟/实验/build_phase2_report.py",
       "tested_local_sha256": "9ac26213cb76da32c6b6d6860a3927befc797dd0ea2dffa21449c781de0e547d",
-      "published_sha256": "dfd3202325150293795d37f58a80cb4d3db3ed7aacec2aadddd40c5f1e31b839"
+      "published_sha256": "06e7dae9901e101500ec5b4dacacf3b9054452310368eb5e36eeddca475b0dbc"
     },
     {
-      "path": "下一阶段/实验/network_suite.py",
+      "path": "扩展调研与模拟/实验/network_suite.py",
       "tested_local_sha256": "03c79c4a513c120f30a1b24fee53b8c42f164a587d6f3522a1298f3d194b003f",
-      "published_sha256": "aadad28d96242248b09de0bf5daf9c5e0b5c5518a73b42e8848adbd6c8c7d468"
+      "published_sha256": "f9bf71c620c6bb2e86223bf6c7201de086e593256ac17b2370b2da2b1134a882"
+    },
+    {
+      "path": "扩展调研与模拟/实验/fetch_unitree_docs.py",
+      "tested_local_sha256": "2f37f8e6803a2ef4692488b62e24e7c954638ca537a34eaede34bf1bee28102f",
+      "published_sha256": "68c91ed76faa413fd9753486182ec8b6f8bcc6a49c8a5d8f0eab685b9247cad8"
+    },
+    {
+      "path": "扩展调研与模拟/实验/netnode.py",
+      "tested_local_sha256": "33b8317a0909657fc1b7077a574faf7f570154f432e08146afce1e76e997ce44",
+      "published_sha256": "7d7a18753b5c29ab5f2de354b525cf0c1b6ba6b3bc06c5a76c197bb41dc3410b"
     }
   ]
 }

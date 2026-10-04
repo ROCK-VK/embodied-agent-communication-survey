@@ -121,7 +121,7 @@ def receiver(mode,case,reconnect):
     (output/'receiver.json').write_text(json.dumps(summary,indent=2));print(json.dumps(summary))
 
 def sender(mode,case):
-    manifest=json.loads(Path('/project/下一阶段/结果/图像实验/network-input.json').read_text(encoding='utf-8'))
+    manifest=json.loads(Path('/project/扩展调研与模拟/结果/图像实验/network-input.json').read_text(encoding='utf-8'))
     selected=set(manifest['selected_seqs']);rows=[];windows=[]
     for window in manifest['windows']:
         lo=window['window']*100;block=manifest['stream'][lo:lo+100]
