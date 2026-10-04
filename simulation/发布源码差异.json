@@ -1,10 +1,10 @@
 {
-  "verification": "Full experiment results come from the original locally tested sources. The public report generator template and matching report text were subsequently updated together; the full simulation was not rerun.",
+  "verification": "Full experiment results come from the original locally tested sources. The report and its generator template have since been revised together to state the next-week research and local simulation plan. The full simulation was not rerun.",
   "changes": [
     {
       "path": "下一阶段/实验/build_phase2_report.py",
       "tested_local_sha256": "9ac26213cb76da32c6b6d6860a3927befc797dd0ea2dffa21449c781de0e547d",
-      "published_sha256": "8b0a7130794d0b12333b6572dd718e12519a1415d97812000a340686e83aa05e"
+      "published_sha256": "dfd3202325150293795d37f58a80cb4d3db3ed7aacec2aadddd40c5f1e31b839"
     },
     {
       "path": "下一阶段/实验/network_suite.py",
