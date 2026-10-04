@@ -1,0 +1,96 @@
+{
+  "status": "passed",
+  "checks": [
+    "360 unique trials",
+    "byte budgets",
+    "fixed update count",
+    "finite metrics",
+    "full-budget equivalence",
+    "config hash",
+    "serialized byte self-consistency",
+    "separate labels/test sizes",
+    "ROS1 five scenarios",
+    "ROS1/ROS2 sequence agreement",
+    "DDS incompatible reliability",
+    "A2A actual task/artifact"
+  ],
+  "files": [
+    {
+      "path": "\u5b9e\u9a8c/a2a_demo.py",
+      "sha256": "a81a775b762d5a530811b1916bacbe26817c7b82b4cad70dc0cae361bbda4a95"
+    },
+    {
+      "path": "\u5b9e\u9a8c/audit_results.py",
+      "sha256": "c59cfb054a9151856d3a208f948c619a8e9333b5890d1341e16db35f4e04b8e4"
+    },
+    {
+      "path": "\u5b9e\u9a8c/build_report.py",
+      "sha256": "05b80f9f277198ec82fd3f65448b6a796b96df7a8e78d231f8527052d1500c85"
+    },
+    {
+      "path": "\u5b9e\u9a8c/config.json",
+      "sha256": "91f0c6b520fff24fb7d6535b7fd115b5d948cccb1290166f7f8d5bc90f9ba4e5"
+    },
+    {
+      "path": "\u5b9e\u9a8c/data_experiment.py",
+      "sha256": "98cf3dbc51aeeab870e936d1888ec41b45c4531656afe9972537b9a8d73c9147"
+    },
+    {
+      "path": "\u5b9e\u9a8c/receiver_training.py",
+      "sha256": "e164b126716e497a6feb576e70280bb834cf97e4596b6e37c1e5cc5f6f274dc8"
+    },
+    {
+      "path": "\u5b9e\u9a8c/ros1_pipeline.py",
+      "sha256": "135d6ed1bcea32cddef50a460e9bd2f87f65442a1bfd7f58bcda4087fe99297b"
+    },
+    {
+      "path": "\u5b9e\u9a8c/ros2_comparison.py",
+      "sha256": "0890f3160cfe8f4d784483809425555557756571801821f24652e60d47f251a4"
+    },
+    {
+      "path": "\u73af\u5883/check_a2a.py",
+      "sha256": "968ca84938c4ff84d3491fe03b065f13e2148968ce20d43a1027f36249f71cbd"
+    },
+    {
+      "path": "\u73af\u5883/check_data.py",
+      "sha256": "e6900021c756f333f8ab9877cade28e36b09438fa1ad9a409c6b34267d4938e0"
+    },
+    {
+      "path": "\u73af\u5883/check_ros1.py",
+      "sha256": "7036aedbcc7d3cc79322eef2eddd2707b4400fe947c059e5ffe2906bcfd84232"
+    },
+    {
+      "path": "\u73af\u5883/compose.yaml",
+      "sha256": "7f7a8b06eb91c93383e33dc468e0526876a010ec8e1d7d91fdd65162f7656adb"
+    },
+    {
+      "path": "\u73af\u5883/environment-manifest.json",
+      "sha256": "a3530c97fe00ba9bc2a6eaf4a659bd57a28de6cbb79fc6b2dc3b892452d47eba"
+    },
+    {
+      "path": "\u73af\u5883/requirements-a2a.lock.txt",
+      "sha256": "419beb35ee6f17b623b07e01f78474aae3dd959ae75ea241334ce90d44b6c30d"
+    },
+    {
+      "path": "\u73af\u5883/requirements-data.lock.txt",
+      "sha256": "1cea6846febe7fa8a9c109c0ba7f03975cbb7c5eea5b0ba2f9f006575ef11a72"
+    },
+    {
+      "path": "\u73af\u5883/ros1-dpkg.lock.txt",
+      "sha256": "3099bde83b2666b18a051ec520cd402c01b7d5e4f113dbccfc3ede1320593805"
+    },
+    {
+      "path": "\u73af\u5883/ros2-dpkg.lock.txt",
+      "sha256": "bf5214276b99cf798dbd597a1d77649dcee3200f95c5488ecc16f7ad001f3d7e"
+    },
+    {
+      "path": "\u73af\u5883/\u6062\u590d\u73af\u5883.ps1",
+      "sha256": "bfa75385f06c1a46dc5316d1d27e833121b163d7db4203a91d2a198d2ec1b8e7"
+    },
+    {
+      "path": "\u73af\u5883/\u9a8c\u8bc1\u73af\u5883.ps1",
+      "sha256": "a71b4a040fa7b1c0634725d2f42bd85799e4e79c4ad95cee894dbe737ef1e296"
+    }
+  ],
+  "scope": "Offline cross-result audit; not hardware or independent replication"
+}

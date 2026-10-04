@@ -1,0 +1,45 @@
+{
+  "checks": {
+    "two_agent_discovery": true,
+    "real_evidence_delegation": true,
+    "duplicate_business_result_reused": true,
+    "sse_disconnect_gettask_recovery": true,
+    "cancel": true,
+    "invalid_case_failed": true,
+    "analysis_process_restart_completed_task": true,
+    "coordinator_process_restart_completed_task": true,
+    "cache_survives_restart": true,
+    "unknown_method_error": true,
+    "only_two_unique_business_computations": true
+  },
+  "sdk": "1.2.1",
+  "protocol": "1.0",
+  "services": "two separate real Windows server processes, HTTP/TCP loopback, JSON-RPC and SSE",
+  "task_store": "official DatabaseTaskStore, SQLAlchemy + aiosqlite",
+  "business_computations": 2,
+  "evidence_case": "tcp-normal",
+  "artifact": {
+    "analysis": {
+      "baseline_f1": 0.850908245944324,
+      "macro_f1": 0.8724131836515994,
+      "scope": "actual local simulation results; no robot actuation; no autonomous model retraining",
+      "captured_ethernet_bytes": 78245.0,
+      "received_sha256": "e3687da70d50a70f4c5bdd1cca89764934603ce767543c7668d250ed5eaaaae1",
+      "expired_frames": 0.0,
+      "case": "tcp-normal",
+      "business_key": "54fcdbd6fbfd407dc5d003a6969ea009dca34ff406fc251e3a13649eede19f0f",
+      "accepted_frames": 120.0,
+      "evidence_sha256": "d67ea6fe091ccd4c1a63d9a11738d4e8cc293604845e6d91e29cd19df0ce31e9",
+      "recommendation": "Keep random/interval baselines; do not use confidence alone as a training-value guarantee",
+      "cache_hit": false
+    },
+    "delegated_task_id": "1cf126b0-a598-40d3-8f3b-c2632129d070"
+  },
+  "task_restore_scope": "completed tasks restored after actual process termination/restart; in-flight worker restart not implemented",
+  "disconnect_scope": "SSE client disconnect while working; server continued and GetTask returned completed",
+  "idempotency_scope": "application-level content-addressed result reuse for sequential duplicate requests, not a universal A2A exactly-once guarantee",
+  "private_database_directory": "\u65e5\u5fd7\\\u4e0b\u4e00\u9636\u6bb5\\a2a\\20261004T094450538121Z",
+  "llm_required": false,
+  "tls_auth_verified": false,
+  "servers_stopped_after_test": true
+}

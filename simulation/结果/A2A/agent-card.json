@@ -1,0 +1,32 @@
+{
+  "name": "Perception Summary Agent",
+  "description": "Local rule-based data summary",
+  "supportedInterfaces": [
+    {
+      "url": "http://127.0.0.1:9279/rpc",
+      "protocolBinding": "JSONRPC",
+      "protocolVersion": "1.0"
+    }
+  ],
+  "version": "0.1.0",
+  "capabilities": {
+    "streaming": true
+  },
+  "defaultInputModes": [
+    "text/plain"
+  ],
+  "defaultOutputModes": [
+    "application/json"
+  ],
+  "skills": [
+    {
+      "id": "summary",
+      "name": "Data summary",
+      "description": "Summarize predictions and confidence, no robot actuation",
+      "tags": [
+        "perception",
+        "analysis"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "windows_data": {
+    "python": "3.13.9",
+    "packages": {
+      "numpy": "2.5.3",
+      "pandas": "3.0.6",
+      "scikit-learn": "1.9.1",
+      "matplotlib": "3.11.2"
+    }
+  },
+  "a2a_python": "3.13.9",
+  "a2a_packages": {
+    "a2a-sdk": "1.2.1",
+    "httpx": "0.28.1",
+    "uvicorn": "0.54.0",
+    "sqlalchemy": "2.1.3",
+    "aiosqlite": "0.22.1",
+    "greenlet": "3.5.6"
+  },
+  "images": [
+    {
+      "tags": [
+        "embodied-sim-ros1:noetic-local"
+      ],
+      "id": "sha256:2beecb4cea4407632e81860f3e63e7d4a5bd2f20e3c17f6bb4df1b5c3c177d79",
+      "size_bytes": 2971038244
+    },
+    {
+      "tags": [
+        "embodied-phase2-network:noetic-local"
+      ],
+      "id": "sha256:0a1bb6d4d1d457c933e813619af903fa1f41fad71754326ef997138cd26e0eff",
+      "size_bytes": 2979575664
+    }
+  ],
+  "network_dockerfile_sha256": "28267055d18e508084e98fa2bd373aa9415999c363974b99e791be04185112d4",
+  "source_runtime_relation": "scripts read directly from read-only project mount; new Docker image adds only network tools; actual image IDs and build source saved",
+  "physical_device_relation": "no firmware/JetPack/model deployment performed; physical device runtime unknown",
+  "container_versions": "iproute2\t5.5.0-1ubuntu1\n6.18.26.1-microsoft-standard-WSL2\ntc utility, iproute2-ss200127\n",
+  "runtime": [
+    {
+      "name": "/embodied-phase2-master",
+      "image": "sha256:0a1bb6d4d1d457c933e813619af903fa1f41fad71754326ef997138cd26e0eff",
+      "state": "exited",
+      "cap_add": null
+    },
+    {
+      "name": "/embodied-phase2-sender",
+      "image": "sha256:0a1bb6d4d1d457c933e813619af903fa1f41fad71754326ef997138cd26e0eff",
+      "state": "exited",
+      "cap_add": [
+        "CAP_NET_ADMIN"
+      ]
+    },
+    {
+      "name": "/embodied-phase2-receiver",
+      "image": "sha256:0a1bb6d4d1d457c933e813619af903fa1f41fad71754326ef997138cd26e0eff",
+      "state": "exited",
+      "cap_add": null
+    }
+  ],
+  "mount_scope": "project read-only; stage results and private logs are separate project-specific writable mounts"
+}

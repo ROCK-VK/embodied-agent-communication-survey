@@ -1,0 +1,58 @@
+{
+  "configured_date": "2026-10-04",
+  "platform": "Windows x86-64 + Docker Desktop WSL2 backend",
+  "docker_server": "29.8.1",
+  "data": {
+    "scope": "environment smoke only",
+    "python": "3.13.9",
+    "packages": {
+      "numpy": "2.5.3",
+      "pandas": "3.0.6",
+      "matplotlib": "3.11.2",
+      "scikit-learn": "1.9.1"
+    },
+    "test_samples": 25,
+    "score": 0.92
+  },
+  "a2a": {
+    "scope": "SDK protobuf and Agent Card HTTP ASGI smoke only",
+    "python": "3.13.9",
+    "sdk": "1.2.1",
+    "http_status": 200,
+    "card_path": "/.well-known/agent-card.json"
+  },
+  "ros": {
+    "distro": "noetic",
+    "ubuntu": "20.04.6",
+    "python": "3.8.10",
+    "catkin": "0.8.12",
+    "architecture": "amd64",
+    "base_digest": "sha256:72b8bc59035dc0a5b8e07aae28c16caa84192971d72d207c72ed734fb1d5e97d",
+    "image_id": "sha256:2beecb4cea4407632e81860f3e63e7d4a5bd2f20e3c17f6bb4df1b5c3c177d79",
+    "image_logical_bytes": 2971038244,
+    "container": "/embodied-sim-ros1",
+    "cpu_limit": 2,
+    "memory_limit_bytes": 2147483648,
+    "host_ports": [],
+    "workspace_volume": "embodied-sim-local_catkin-workspace"
+  },
+  "scope": "Local synthetic experiment environment; physical robot/Jetson version unconfirmed",
+  "ros2": {
+    "distro": "humble",
+    "ubuntu": "22.04.5",
+    "python": "3.10.12",
+    "rclpy": "3.3.22",
+    "rmw": "rmw_fastrtps_cpp",
+    "rmw_version": "6.2.10",
+    "architecture": "amd64",
+    "image_digest": "sha256:860e53793ccf575e5369b5e9a19939de2bfcfb46a299954d06f54f2af54fed19",
+    "image_id": "sha256:860e53793ccf575e5369b5e9a19939de2bfcfb46a299954d06f54f2af54fed19",
+    "image_logical_bytes": 1141770924,
+    "container": "embodied-sim-ros2",
+    "domain_id": 47,
+    "localhost_only": true,
+    "cpu_limit": 2,
+    "memory_limit_bytes": 2147483648,
+    "host_ports": []
+  }
+}

@@ -1,0 +1,67 @@
+[
+  {
+    "profile": {
+      "name": "hypothesis: Go2 EDU NX dock",
+      "arch": "aarch64",
+      "memory_gib_assumed": 16,
+      "jetpack": "5.1.1",
+      "ubuntu": "20.04",
+      "native_ros": "noetic",
+      "unitree_protocol": "DDS",
+      "host_ip": "192.168.123.222",
+      "robot_ip": "192.168.123.161",
+      "dock_ip": "192.168.123.18",
+      "status": "mock inventory, NOT physical device output"
+    },
+    "validation": {
+      "consistent": true,
+      "issues": [],
+      "integration_boundary": "requires a protocol adapter; ROS1/TCPROS cannot directly subscribe Unitree DDS"
+    }
+  },
+  {
+    "profile": {
+      "name": "alternative generic Orin NX setup",
+      "arch": "aarch64",
+      "memory_gib_assumed": 8,
+      "jetpack": "6.2",
+      "ubuntu": "22.04",
+      "native_ros": "humble",
+      "unitree_protocol": "DDS",
+      "host_ip": "192.168.123.222",
+      "robot_ip": "192.168.123.161",
+      "dock_ip": "192.168.123.18",
+      "status": "mock inventory, NOT physical device output"
+    },
+    "validation": {
+      "consistent": true,
+      "issues": [],
+      "integration_boundary": "ROS2 needs device-compatible DDS types/RMW; actual version not verified"
+    }
+  },
+  {
+    "profile": {
+      "name": "negative test: incompatible host and duplicate IP",
+      "arch": "x86_64",
+      "memory_gib_assumed": 16,
+      "jetpack": "5.1.1",
+      "ubuntu": "22.04",
+      "native_ros": "noetic",
+      "unitree_protocol": "DDS",
+      "host_ip": "192.168.123.18",
+      "robot_ip": "192.168.123.161",
+      "dock_ip": "192.168.123.18",
+      "status": "mock inventory, NOT physical device output"
+    },
+    "validation": {
+      "consistent": false,
+      "issues": [
+        "not Jetson ARM64",
+        "JetPack/Ubuntu profile inconsistent",
+        "Noetic native Ubuntu profile mismatch",
+        "IP subnet or address collision"
+      ],
+      "integration_boundary": "requires a protocol adapter; ROS1/TCPROS cannot directly subscribe Unitree DDS"
+    }
+  }
+]

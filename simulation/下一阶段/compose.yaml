@@ -1,0 +1,44 @@
+name: embodied-phase2
+x-base: &base
+  image: embodied-phase2-network:noetic-local
+  init: true
+  cpus: 2.0
+  mem_limit: 1g
+  pids_limit: 128
+  restart: "no"
+  networks: [isolated]
+  volumes:
+    - ../:/project:ro
+    - ./结果/网络实验:/output
+    - ../日志/下一阶段/network:/private
+  command: [sleep, infinity]
+services:
+  master:
+    <<: *base
+    container_name: embodied-phase2-master
+    hostname: master
+    environment:
+      ROS_MASTER_URI: http://master:11311
+      ROS_HOSTNAME: master
+    command: [roscore]
+  sender:
+    <<: *base
+    container_name: embodied-phase2-sender
+    hostname: sender
+    build:
+      context: .
+      dockerfile: Dockerfile.network
+    cap_add: [NET_ADMIN]
+    environment:
+      ROS_MASTER_URI: http://master:11311
+      ROS_HOSTNAME: sender
+  receiver:
+    <<: *base
+    container_name: embodied-phase2-receiver
+    hostname: receiver
+    environment:
+      ROS_MASTER_URI: http://master:11311
+      ROS_HOSTNAME: receiver
+networks:
+  isolated:
+    internal: true

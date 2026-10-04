@@ -1,0 +1,30 @@
+{
+  "case": "normal",
+  "config": {
+    "n": 90,
+    "hz": 60,
+    "ratio": 0.5,
+    "window": 15,
+    "ttl": 1.0,
+    "worker_delay": 0,
+    "queue": 8,
+    "drop": 0,
+    "delay": 0,
+    "pause": 0
+  },
+  "counts": {
+    "source_sent": 90,
+    "selector_received": 90,
+    "receiver_arrival": 42,
+    "budget_drop": 48,
+    "window_budget": 6,
+    "selected": 42,
+    "forwarded": 42,
+    "accepted": 42,
+    "source_done": 1
+  },
+  "budget_violations": 0,
+  "unexplained_receiver_missing": 0,
+  "max_accepted_age_seconds": 0.2501820449997467,
+  "scope": "Real local TCPROS; faults deliberately injected in application, not wireless loss"
+}

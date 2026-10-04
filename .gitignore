@@ -27,3 +27,22 @@ Thumbs.db
 
 # Private planning notes; never publish
 /本地资料/
+
+# Simulation private artifacts and dependencies
+**/日志/
+.venv-*/
+.cache/
+*.pyc
+*.log
+*.sqlite*
+**/验收产物/
+**/environment-manifest.json
+**/events.jsonl
+**/rpc-transcript.json
+**/transcript.json
+**/stream-events.json
+**/disconnect-events.json
+**/其他项目保护*.json
+**/旧项目最终保护核对.json
+**/本项目容器状态.json
+**/ready

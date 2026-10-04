@@ -1,0 +1,3 @@
+iproute2	5.5.0-1ubuntu1
+6.18.26.1-microsoft-standard-WSL2
+tc utility, iproute2-ss200127

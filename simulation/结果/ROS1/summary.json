@@ -1,0 +1,156 @@
+[
+  {
+    "case": "normal",
+    "config": {
+      "n": 90,
+      "hz": 60,
+      "ratio": 0.5,
+      "window": 15,
+      "ttl": 1.0,
+      "worker_delay": 0,
+      "queue": 8,
+      "drop": 0,
+      "delay": 0,
+      "pause": 0
+    },
+    "counts": {
+      "source_sent": 90,
+      "selector_received": 90,
+      "receiver_arrival": 42,
+      "budget_drop": 48,
+      "window_budget": 6,
+      "selected": 42,
+      "forwarded": 42,
+      "accepted": 42,
+      "source_done": 1
+    },
+    "budget_violations": 0,
+    "unexplained_receiver_missing": 0,
+    "max_accepted_age_seconds": 0.2501820449997467,
+    "scope": "Real local TCPROS; faults deliberately injected in application, not wireless loss"
+  },
+  {
+    "case": "pause",
+    "config": {
+      "n": 90,
+      "hz": 60,
+      "ratio": 0.5,
+      "window": 15,
+      "ttl": 1.0,
+      "worker_delay": 0,
+      "queue": 8,
+      "drop": 0,
+      "delay": 0,
+      "pause": 0.7
+    },
+    "counts": {
+      "source_sent": 90,
+      "selector_received": 90,
+      "receiver_arrival": 42,
+      "budget_drop": 48,
+      "window_budget": 6,
+      "selected": 42,
+      "forwarded": 42,
+      "accepted": 42,
+      "pause_begin": 1,
+      "source_gap": 1,
+      "source_done": 1
+    },
+    "budget_violations": 0,
+    "unexplained_receiver_missing": 0,
+    "max_accepted_age_seconds": 0.24822663200029638,
+    "scope": "Real local TCPROS; faults deliberately injected in application, not wireless loss"
+  },
+  {
+    "case": "slow_receiver",
+    "config": {
+      "n": 90,
+      "hz": 60,
+      "ratio": 1.0,
+      "window": 15,
+      "ttl": 0.15,
+      "worker_delay": 0.08,
+      "queue": 4,
+      "drop": 0,
+      "delay": 0,
+      "pause": 0
+    },
+    "counts": {
+      "source_sent": 90,
+      "selector_received": 90,
+      "window_budget": 6,
+      "selected": 90,
+      "forwarded": 90,
+      "receiver_arrival": 90,
+      "queue_drop": 69,
+      "accepted": 2,
+      "stale_drop": 19,
+      "source_done": 1
+    },
+    "budget_violations": 0,
+    "unexplained_receiver_missing": 0,
+    "max_accepted_age_seconds": 0.14869248000013613,
+    "scope": "Real local TCPROS; faults deliberately injected in application, not wireless loss"
+  },
+  {
+    "case": "injected_delay",
+    "config": {
+      "n": 60,
+      "hz": 60,
+      "ratio": 0.5,
+      "window": 15,
+      "ttl": 0.1,
+      "worker_delay": 0,
+      "queue": 8,
+      "drop": 0,
+      "delay": 0.06,
+      "pause": 0
+    },
+    "counts": {
+      "source_sent": 60,
+      "selector_received": 60,
+      "budget_drop": 32,
+      "window_budget": 4,
+      "selected": 28,
+      "forwarded": 28,
+      "receiver_arrival": 28,
+      "stale_drop": 28,
+      "source_done": 1
+    },
+    "budget_violations": 0,
+    "unexplained_receiver_missing": 0,
+    "max_accepted_age_seconds": null,
+    "scope": "Real local TCPROS; faults deliberately injected in application, not wireless loss"
+  },
+  {
+    "case": "injected_loss",
+    "config": {
+      "n": 90,
+      "hz": 60,
+      "ratio": 0.5,
+      "window": 15,
+      "ttl": 1.0,
+      "worker_delay": 0,
+      "queue": 8,
+      "drop": 0.35,
+      "delay": 0,
+      "pause": 0
+    },
+    "counts": {
+      "source_sent": 90,
+      "selector_received": 90,
+      "receiver_arrival": 26,
+      "budget_drop": 48,
+      "window_budget": 6,
+      "selected": 42,
+      "forwarded": 26,
+      "injected_loss": 16,
+      "accepted": 26,
+      "source_done": 1
+    },
+    "budget_violations": 0,
+    "unexplained_receiver_missing": 0,
+    "max_accepted_age_seconds": 0.24764551899988874,
+    "scope": "Real local TCPROS; faults deliberately injected in application, not wireless loss"
+  }
+]

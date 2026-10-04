@@ -1,0 +1,6 @@
+case,received,updates,status,class_coverage,accuracy,macro_f1,training_log_loss,test_log_loss
+injected_delay,0,0,no fresh data; training skipped,,,,,
+injected_loss,26,30,offline training passed,3.0,0.817,0.8173583120591285,0.09673800654944091,0.4882672893305339
+normal,42,30,offline training passed,3.0,0.801,0.8015643050774027,0.09834515589229702,0.5130048105044936
+pause,42,30,offline training passed,3.0,0.801,0.8015643050774027,0.09834515589229702,0.5130048105044936
+slow_receiver,2,30,offline training passed,2.0,0.571,0.5484871116187322,0.00955190230543347,1.0343117587296369

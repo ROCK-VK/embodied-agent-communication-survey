@@ -1,0 +1,115 @@
+{
+  "ros": "humble",
+  "middleware": "rmw_fastrtps_cpp",
+  "scope": "Real DDS within one container; application contract comparison, no throughput ranking",
+  "pipeline": {
+    "candidate_count": 90,
+    "selected_count": 42,
+    "received_count": 42,
+    "windows": [
+      {
+        "budget": 1423,
+        "selected_bytes": 1320,
+        "count": 7
+      },
+      {
+        "budget": 1431,
+        "selected_bytes": 1337,
+        "count": 7
+      },
+      {
+        "budget": 1441,
+        "selected_bytes": 1344,
+        "count": 7
+      },
+      {
+        "budget": 1435,
+        "selected_bytes": 1340,
+        "count": 7
+      },
+      {
+        "budget": 1438,
+        "selected_bytes": 1339,
+        "count": 7
+      },
+      {
+        "budget": 1429,
+        "selected_bytes": 1335,
+        "count": 7
+      }
+    ],
+    "budget_violations": 0,
+    "selected_cdr_bytes": 8225,
+    "accounting": "Budget = 4+UTF8 JSON bytes as ROS1; ROS2 actual CDR bytes separately measured, not full network bytes",
+    "seqs": [
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      23,
+      30,
+      31,
+      33,
+      34,
+      35,
+      43,
+      44,
+      47,
+      48,
+      50,
+      51,
+      52,
+      53,
+      56,
+      60,
+      61,
+      62,
+      63,
+      64,
+      72,
+      73,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89
+    ],
+    "clock": "Original synthetic timestamps, not used for ROS2 latency/TTL"
+  },
+  "qos": [
+    {
+      "case": "reliable_pair",
+      "publisher": "reliable",
+      "subscriber": "reliable",
+      "received": 82,
+      "incompatible_events": []
+    },
+    {
+      "case": "best_effort_pair",
+      "publisher": "best_effort",
+      "subscriber": "best_effort",
+      "received": 83,
+      "incompatible_events": []
+    },
+    {
+      "case": "incompatible",
+      "publisher": "best_effort",
+      "subscriber": "reliable",
+      "received": 0,
+      "incompatible_events": [
+        1
+      ]
+    }
+  ]
+}

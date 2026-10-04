@@ -1,0 +1,31 @@
+{
+  "case": "slow_receiver",
+  "config": {
+    "n": 90,
+    "hz": 60,
+    "ratio": 1.0,
+    "window": 15,
+    "ttl": 0.15,
+    "worker_delay": 0.08,
+    "queue": 4,
+    "drop": 0,
+    "delay": 0,
+    "pause": 0
+  },
+  "counts": {
+    "source_sent": 90,
+    "selector_received": 90,
+    "window_budget": 6,
+    "selected": 90,
+    "forwarded": 90,
+    "receiver_arrival": 90,
+    "queue_drop": 69,
+    "accepted": 2,
+    "stale_drop": 19,
+    "source_done": 1
+  },
+  "budget_violations": 0,
+  "unexplained_receiver_missing": 0,
+  "max_accepted_age_seconds": 0.14869248000013613,
+  "scope": "Real local TCPROS; faults deliberately injected in application, not wireless loss"
+}

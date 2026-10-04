@@ -1,0 +1,45 @@
+name: embodied-sim-local
+services:
+  ros1:
+    build:
+      context: .
+      dockerfile: Dockerfile.ros1
+    image: embodied-sim-ros1:noetic-local
+    container_name: embodied-sim-ros1
+    init: true
+    cpus: 2.0
+    mem_limit: 2g
+    pids_limit: 256
+    environment:
+      ROS_MASTER_URI: http://127.0.0.1:11311
+      ROS_HOSTNAME: localhost
+    volumes:
+      - ../:/project:ro
+      - catkin-workspace:/workspaces/catkin_ws
+    networks:
+      - simulation
+    restart: "no"
+  ros2:
+    image: ros:humble-ros-base-jammy@sha256:860e53793ccf575e5369b5e9a19939de2bfcfb46a299954d06f54f2af54fed19
+    container_name: embodied-sim-ros2
+    init: true
+    cpus: 2.0
+    mem_limit: 2g
+    pids_limit: 256
+    environment:
+      ROS_DOMAIN_ID: "47"
+      ROS_LOCALHOST_ONLY: "1"
+    volumes:
+      - ../:/project:ro
+      - ros2-workspace:/workspaces/ros2
+    working_dir: /workspaces/ros2
+    networks:
+      - simulation
+    command: ["sleep", "infinity"]
+    restart: "no"
+networks:
+  simulation:
+    internal: true
+volumes:
+  catkin-workspace:
+  ros2-workspace:

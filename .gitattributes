@@ -2,3 +2,7 @@
 *.md text eol=lf
 .gitignore text eol=lf
 .gitattributes text eol=lf
+
+# Preserve measured artifact bytes and source provenance hashes
+/simulation/** -text
+/simulation/**/*.md text eol=lf

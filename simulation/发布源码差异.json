@@ -1,0 +1,15 @@
+{
+  "verification": "publication source syntax checked; full experiment results are from original local tested sources",
+  "changes": [
+    {
+      "path": "下一阶段/实验/build_phase2_report.py",
+      "tested_local_sha256": "9ac26213cb76da32c6b6d6860a3927befc797dd0ea2dffa21449c781de0e547d",
+      "published_sha256": "a93bc2df5faf9b9fe10c517d221219e4c64c3a4ae85be211a7d9d928e3ef76e8"
+    },
+    {
+      "path": "下一阶段/实验/network_suite.py",
+      "tested_local_sha256": "03c79c4a513c120f30a1b24fee53b8c42f164a587d6f3522a1298f3d194b003f",
+      "published_sha256": "aadad28d96242248b09de0bf5daf9c5e0b5c5518a73b42e8848adbd6c8c7d468"
+    }
+  ]
+}
