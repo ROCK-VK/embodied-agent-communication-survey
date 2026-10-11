@@ -8,13 +8,22 @@
 
 目前我只完成了资料调研和计划整理，还不知道实验室 TX/RX 的具体型号，也没有刷机或采过真实 CSI。所以下一步先盘点设备，确认条件后再动手。
 
+## 调研结果和两个仓库怎么用
+
+查下来，CSI 是按收到的无线包记录的；这套工具分驱动/固件和用户态收发工具两部分，主要面向 ath9k 支持的 Atheros 802.11n 芯片，并不是所有 Atheros 设备都能用。项目列出的已验证芯片有 AR9580、AR9590、AR9344、QCA9558 等，具体设备仍要按完整型号、硬件版本和驱动核对。项目 Wiki 的 AP/Client 采集方式要求 TX、RX 都使用兼容实现。
+
+| 仓库 | 主要内容 | 计划在哪一步用 |
+|---|---|---|
+| [Atheros_CSI_tool_OpenWRT_src](https://github.com/xieyaxiongfly/Atheros_CSI_tool_OpenWRT_src) | OpenWrt 和 CSI 驱动侧代码，涉及硬件支持及固件准备 | 第 1 步核对 TX/RX 芯片和驱动；如果现有设备没有可用 CSI 固件，再确认型号、镜像和许可后，按这个仓库的说明准备固件 |
+| [Atheros_CSI_tool_OpenWRT_UserSpaceApp_src](https://github.com/xieyaxiongfly/Atheros_CSI_tool_OpenWRT_UserSpaceApp_src) | 路由器上运行的用户态工具，包含 sendData、recvCSI 和 MATLAB 解析目录 | 第 2 步用 sendData/recvCSI 跑官方小包测试并解析 CSI；第 3 步沿用接收记录检查自定义 sample_id（这部分需要我们自己发包，不是仓库现成功能） |
+
 ## 实验安排
 
-1. **先核对设备和数据路径。** 记下 TX/RX 的完整型号、硬件版本、无线芯片、驱动和当前固件；同时确认机器狗数据现在走哪条无线链路、视觉/雷达具体传什么数据，以及位置从哪里来。型号或固件不清楚时先停下来核实，不试刷。
+1. **先核对设备和数据路径。** 对照 OpenWrt/驱动仓库记录 TX/RX 的完整型号、硬件版本、无线芯片、驱动和当前固件；同时确认机器狗数据现在走哪条无线链路、视觉/雷达具体传什么数据，以及位置从哪里来。型号或固件不清楚时先停下来核实，不试刷。
 
-2. **先把 CSI 链路跑通。** 如果实验室已有兼容设备，就先用现成设备；TX 和 RX 之间只走 Wi-Fi，暂时不接机器狗和传感器。按设备上实际的命令启动 recvCSI、发送少量测试包，检查接收记录里有没有可解析且 CSI 长度非零的数据。记录数不一定和发包数完全相同。Atheros 项目的标准 AP/Client 方式要求两端都使用兼容实现，设备和驱动要按具体型号确认。
+2. **先把 CSI 链路跑通。** 如果实验室已有兼容设备，就先用现成设备；TX 和 RX 之间只走 Wi-Fi，暂时不接机器狗和传感器。按用户态仓库的用法在 RX 启动 recvCSI、在 TX 用 sendData 发少量测试包，再用配套解析程序看记录里有没有有效 CSI。记录数不一定和发包数完全相同。如果设备里没有这些命令，再确认目标架构后编译；不先在 Jetson 或本机盲装驱动。
 
-3. **验证业务数据和 CSI 的对应关系。** 发带 sample_id、数据类型和时间戳的小 UDP 包，检查接收记录能否同时找到这个标识和有效 CSI。优先沿用已有消息序号；一个样本可能对应多条 CSI。只有应用程序自己把样本切成多块时，才加 chunk_id。
+3. **验证业务数据和 CSI 的对应关系。** 官方 sendData 先用于基线测试；通过后再发带 sample_id、数据类型和时间戳的小 UDP 包，检查接收记录能否同时找到标识和有效 CSI。这个 sample_id 是我们自己的业务字段，不假设官方测试程序已经支持。优先沿用已有消息序号；一个样本可能对应多条 CSI。只有应用程序自己把样本切成多块时，才加 chunk_id。
 
 4. **确认机器狗的数据真的经过被测 Wi-Fi。** 先从 Jetson 发小测试数据到接收端，确认数据走的是 TX 到 RX 的无线链路，同时接收端能记录到对应 CSI。如果用外接 TX，测到的是外接节点到 RX 这一段 Wi-Fi，不等于 Jetson 自带无线网卡的 CSI。
 
@@ -42,6 +51,7 @@
 ## 参考资料
 
 - [Atheros CSI Tool 项目](https://github.com/xieyaxiongfly/Atheros_CSI_tool_OpenWRT_src)
+- [Atheros CSI Tool OpenWRT 用户态工具（sendData、recvCSI、MATLAB）](https://github.com/xieyaxiongfly/Atheros_CSI_tool_OpenWRT_UserSpaceApp_src)
 - [项目 Wiki：CSI 采集方式和 TX/RX 要求](https://github.com/xieyaxiongfly/Atheros_CSI_tool_OpenWRT_src/wiki/Collect-CSI)
 - [项目 Wiki：OpenWrt 安装与硬件说明](https://github.com/xieyaxiongfly/Atheros_CSI_tool_OpenWRT_src/wiki/Install-OpenWRT-version-of-Atheros-CSI-tool)
 - [OpenWrt 官方：设备刷写说明](https://openwrt.org/docs/guide-user/installation/generic.flashing)
