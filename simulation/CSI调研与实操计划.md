@@ -4,7 +4,7 @@
 
 ## 计划概述
 
-我们的计划是先在本机把“传感器样本加编号，经 UDP 分块发送，再在接收端重组”跑通；进实验室后先核对无线设备，再验证 Atheros CSI 链路和业务数据关联，之后才接 Go2 的位置、相机和雷达数据。相机、雷达分开接入，最后再考虑一起跑。
+我的计划是先在本机把“传感器样本加编号，经 UDP 分块发送，再在接收端重组”跑通；进实验室后先核对无线设备，再验证 Atheros CSI 链路和业务数据关联，之后才接 Go2 的位置、相机和雷达数据。相机、雷达分开接入，最后再考虑一起跑。
 
 本机 UDP 验证已完成，结果和边界见下文。目前还不知道实验室 TX/RX 的具体型号，也没有刷机或采过真实 CSI；Go2 传感器接口也要到现场确认。因此，下文中涉及硬件的部分是待现场核对后执行的计划，不代表已经实测。
 
@@ -15,11 +15,11 @@
 | 仓库 | 主要内容 | 计划在哪一步用 |
 |---|---|---|
 | [Atheros_CSI_tool_OpenWRT_src](https://github.com/xieyaxiongfly/Atheros_CSI_tool_OpenWRT_src) | OpenWrt 和 CSI 驱动侧代码，涉及硬件支持及固件准备 | 第 1 步核对 TX/RX 芯片和驱动；如果现有设备没有可用 CSI 固件，再确认型号、镜像和许可后，按这个仓库的说明准备固件 |
-| [Atheros_CSI_tool_OpenWRT_UserSpaceApp_src](https://github.com/xieyaxiongfly/Atheros_CSI_tool_OpenWRT_UserSpaceApp_src) | 路由器上运行的用户态工具，包含 sendData、recvCSI 和 MATLAB 解析目录 | 第 2 步用 sendData/recvCSI 跑官方小包测试并解析 CSI；第 3 步沿用接收记录检查自定义 sample_id（这部分需要我们自己发包，不是仓库现成功能） |
+| [Atheros_CSI_tool_OpenWRT_UserSpaceApp_src](https://github.com/xieyaxiongfly/Atheros_CSI_tool_OpenWRT_UserSpaceApp_src) | 路由器上运行的用户态工具，包含 sendData、recvCSI 和 MATLAB 解析目录 | 第 2 步用 sendData/recvCSI 跑官方小包测试并解析 CSI；第 3 步沿用接收记录检查自定义 sample_id（这部分需要我自己发包，不是仓库现成功能） |
 
 ## 实验安排
 
-下面是我们准备按顺序做的完整流程。Jetson 保持实验室现有 Ubuntu/JetPack 环境；OpenWrt 和 CSI 驱动放在兼容的 Atheros TX/RX 节点上，第一轮不改 Jetson 内核，也不在 Jetson 上安装 OpenWrt 或 CSI Tool。
+下面是我准备按顺序做的完整流程。Jetson 保持实验室现有 Ubuntu/JetPack 环境；OpenWrt 和 CSI 驱动放在兼容的 Atheros TX/RX 节点上，第一轮不改 Jetson 内核，也不在 Jetson 上安装 OpenWrt 或 CSI Tool。
 
 ```text
 Go2 / 传感器（具体接口现场确认）
@@ -59,7 +59,7 @@ Jetson Orin NX（Ubuntu / JetPack）
 
 2. **先跑 Atheros CSI 基线。** 如果实验室已有兼容设备，先用现成设备；暂时不接机器狗和传感器，让 TX、RX 只通过 Wi-Fi 通信。按用户态仓库用法在 RX 启动 `recvCSI`，在 TX 用 `sendData` 发少量测试包，再用解析程序检查是否得到有效 CSI。记录条数不一定与发包数完全相同。如果设备没有这些命令，先确认目标架构和固件来源，再决定是否编译或部署；不在 Jetson 或本机盲装驱动。
 
-3. **验证业务数据和 CSI 的关联。** 基线测试通过后，发送带 `sample_id`、数据类型和时间戳的小 UDP 包，检查 RX 侧能否从记录载荷中找到标识，并把它与有效 CSI 记录关联。这个 `sample_id` 是我们自己的业务字段，不假设官方测试程序已经支持。优先沿用已有消息序号；一个样本可能对应多条 CSI。只有应用程序自己把样本切成多块时，才加 `chunk_id` 和 `chunk_count`。
+3. **验证业务数据和 CSI 的关联。** 基线测试通过后，发送带 `sample_id`、数据类型和时间戳的小 UDP 包，检查 RX 侧能否从记录载荷中找到标识，并把它与有效 CSI 记录关联。这个 `sample_id` 是我定义的业务字段，不假设官方测试程序已经支持。优先沿用已有消息序号；一个样本可能对应多条 CSI。只有应用程序自己把样本切成多块时，才加 `chunk_id` 和 `chunk_count`。
 
 4. **确认机器狗数据经过被测 Wi-Fi。** 先从 Jetson 发小测试数据到服务器，确认数据确实经过 TX 到 RX 的无线链路，同时 RX 能记录相关 CSI。如果用外接 TX，测到的是外接 TX 到 RX 这一段 Wi-Fi，不是 Jetson 自带无线网卡的 CSI。
 
