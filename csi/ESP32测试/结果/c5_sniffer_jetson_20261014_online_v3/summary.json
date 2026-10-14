@@ -1,0 +1,135 @@
+{
+  "classification": "D",
+  "classification_scope": "observation only; a negative result requires independently verified target availability",
+  "compatibility_verdict": "source-confirmed positive",
+  "duration_after_armed_s": 300.20300000000043,
+  "armed": {
+    "event": "ARMED",
+    "channel": 149,
+    "secondary": 0,
+    "target": "<JETSON_MAC>",
+    "mode": "NULL",
+    "rx_bw": null,
+    "ack_csi": false
+  },
+  "final_device_counters": {
+    "event": "FINAL",
+    "hostless_us": 300735746,
+    "prom_total": 197959,
+    "prom_target": 43915,
+    "prom_target_data": 470,
+    "prom_target_mgmt": 1,
+    "prom_target_ctrl": 43444,
+    "csi_total": 197959,
+    "csi_target": 43915,
+    "csi_target_valid": 43915,
+    "csi_target_data": 470,
+    "csi_target_data_valid": 470,
+    "frame_drop": 27075,
+    "csi_drop": 19610,
+    "csi_target_drop": 18709,
+    "csi_empty": 0,
+    "csi_truncated": 0,
+    "csi_target_hdr_conflict": 0,
+    "prom_parsed_ta": 140993,
+    "prom_mgmt_all": 197959,
+    "prom_data_all": 0,
+    "prom_ctrl_all": 0,
+    "prom_misc_all": 0,
+    "frame_target_drop": 26263
+  },
+  "host_events": {
+    "serial_lines": 45554,
+    "READY": 1,
+    "ARMED": 1,
+    "CSI": 26748,
+    "FRAME": 18419,
+    "STATS": 299,
+    "json_parse_errors": 1,
+    "FINAL": 1
+  },
+  "target_frame_records_exported": 17651,
+  "target_csi_records_exported": 25206,
+  "source_header_confirmed_csi": 25206,
+  "source_confirmed_usable_csi": 25206,
+  "source_confirmed_data_csi": 311,
+  "source_confirmed_uplink_data_csi": 311,
+  "unique_timestamp_ta_fc_seq_matches": 241,
+  "same_frame_join_scope": "identical RX timestamp/TA/FC/seq only, not UDP/sample_id",
+  "target_csi_lengths": {
+    "106": 25206
+  },
+  "target_csi_formats": {
+    "1": 25206
+  },
+  "target_frame_types": {
+    "1": 17409,
+    "2": 241,
+    "0": 1
+  },
+  "target_frame_subtypes": {
+    "1/11": 8020,
+    "1/9": 9389,
+    "2/8": 241,
+    "0/13": 1
+  },
+  "target_frame_formats": {
+    "1": 17651
+  },
+  "target_csi_rx_states": {
+    "0": 25206
+  },
+  "target_csi_estimate_valid": {
+    "1": 25206
+  },
+  "target_csi_first_word_invalid": {
+    "0": 25206
+  },
+  "target_csi_unique_buffers": 25206,
+  "background_frame_samples": 768,
+  "background_frame_transmitters": {
+    "<AP_BSSID>": 616,
+    "<DEVICE_MAC_983806694bb5>": 61,
+    "<DEVICE_MAC_c6e3be64dd00>": 53,
+    "<DEVICE_MAC_e676075bde10>": 14,
+    "<DEVICE_MAC_6307ac74ea64>": 10,
+    "<DEVICE_MAC_10df766f3f28>": 14
+  },
+  "background_frame_types": {
+    "1": 612,
+    "0": 93,
+    "2": 63
+  },
+  "background_csi_sampled": 1542,
+  "background_csi_valid": 1542,
+  "background_source_macs": {
+    "<AP_BSSID>": 857,
+    "<NO_SOURCE_MAC>": 519,
+    "<DEVICE_MAC_983806694bb5>": 67,
+    "<DEVICE_MAC_c6e3be64dd00>": 58,
+    "<DEVICE_MAC_e676075bde10>": 16,
+    "<DEVICE_MAC_6307ac74ea64>": 11,
+    "<DEVICE_MAC_10df766f3f28>": 14
+  },
+  "boot_evidence": [
+    "I (221) app_init: Project name:     sniffer_jetson",
+    "I (222) app_init: App version:      sniffer-3",
+    "I (223) app_init: ELF file SHA256:  8c193dbe3...",
+    "I (223) app_init: ESP-IDF:          v5.5.5"
+  ],
+  "jetson_modified": false,
+  "runtime_target_mac": "<JETSON_MAC>",
+  "host_wall_start": 1791965794.4082658,
+  "needs_20mhz_control": false,
+  "needs_ap_plan_b_now": false,
+  "target_online_reverified_after_run": true,
+  "target_mac_and_channel_unchanged_after_run": true,
+  "target_wlan_tx_packets_before": 977,
+  "target_wlan_tx_packets_after": 240869,
+  "target_wlan_rx_packets_before": 1686,
+  "target_wlan_rx_packets_after": 76582,
+  "nic_counter_scope": "network-device packet counters, not raw 802.11 frame count; before/after bracket includes flashing/setup",
+  "com_released": true,
+  "esp_acquisition_stopped": true,
+  "target_availability": "read-only SSH, MAC and frequency checked before/after successful v3 run"
+}

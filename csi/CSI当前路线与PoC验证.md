@@ -6,11 +6,11 @@
 
 关联业务样本、上行无线帧 CSI、时间和位置。尽量复用 Jetson RTL8821CU 作为普通 Wi-Fi 发送端，由固定接收端提取 CSI。
 
-当前用户明确后续测试ESP32和Pi4B；现有1块QSZNTEC板照片明确ESP32-C5标识，revision v1.0/Flash4MB已实查，SKU仍未知。ESP顺序为单板路由器基线→保持Jetson网络的探索监听→ESP AP备选（先PC，未来才Jetson）；AX210/PicoScenes保留按需升级。执行入口：[ESP32测试](ESP32_CSI测试方案.md)、[Pi4B测试](树莓派4B_Nexmon_CSI测试方案.md)。
+当前用户明确后续测试ESP32和Pi4B；现有1块QSZNTEC板照片明确ESP32-C5标识，revision v1.0/Flash4MB已实查，SKU仍未知。ESP单板路由器基线与当前网络被动监听PoC均已完成；监听成功限legacy上行数据CSI，ESP AP仅备选（先PC，未来才Jetson）；AX210/PicoScenes保留按需升级。执行入口：[ESP32测试](ESP32_CSI测试方案.md)、[Pi4B测试](树莓派4B_Nexmon_CSI测试方案.md)。
 
 Atheros CSI Tool 已降级为历史参考/备用；旧调研和失败经验保留，不作为主采购或主实现入口。这是路线选择变化，不代表已通过实验否定 Atheros。
 
-已更新文档、核验官方资料并完成授权Jetson只读补查。Windows ESP-IDF5.5.5已安装/激活，ESP板已有实物照片；C5 router构建/烧录/300秒CSI基线已完成；Pi未复现，未修改Jetson网络、驱动、ROS、Mihomo或服务。
+已更新文档、核验官方资料并完成授权Jetson只读补查。Windows ESP-IDF5.5.5已安装/激活，ESP板已有实物照片；C5 router基线与独立sniffer的Jetson上行CSI PoC已完成；Pi未复现，未修改Jetson网络、驱动、ROS、Mihomo或服务。
 
 ## 已确认实机事实与边界
 
@@ -92,3 +92,8 @@ FeitCSI已退出当前主方案，不再采购/部署；此前选择仅保留在
 实测RTL8821CU能力为1条空间流、无160/80+80、无HE/6GHz能力枚举。PicoScenes的AX210最高规格不能视为保留现有TX后的实际链路规格。
 
 2026-10-14补充：Pi4B除旧内核修改brcmfmac方案外，官方现有Makefile.rpi/vendor-command路线可用于较新内核，实际版本仍待核验。ESP当前照片已明确C5标识，仍不能把5GHz支持扩展为80MHz监听；具体芯片/Flash与CSI运行待测。两份测试方案优先于历史采购建议。
+
+## 最新实验2结果
+
+- 独立sniffer-3/NULL/149，300秒目标FRAME43915（Data470）/CSI目标43915；导出311条有效上行DataCSI、241组同帧元数据确认，结果D。见[结果报告](ESP32测试/结果/c5_sniffer_jetson_20261014_online_v3/ESP32-C5_被动监听Jetson_PoC结果.md)。
+- 有效范围为legacy OFDM，不是VHT80 CSI；UART queue drop已量化，完整帧覆盖/吞吐未验证。Agent未改Jetson配置；初次关机零结果无效，开机在线后重新观察成功。当前无需AP Plan B，不做sample_id/传感器，优先改善导出。

@@ -1,6 +1,6 @@
 # ESP32-C5 单板 CSI 测试方案
 
-更新：2026-10-14。当前只有1块板；照片明确标注QSZNTEC、ESP32-C5、2.4/5G，外置天线已连接。路由器阶段已按下述记录完成实机验证；监听/AP阶段仍为待执行计划。沿用本文件作为唯一ESP测试入口，不另建重复的“ESP32_CSI测试计划.md”。
+更新：2026-10-14。当前只有1块板；照片明确标注QSZNTEC、ESP32-C5、2.4/5G，外置天线已连接。路由器阶段已按下述记录完成实机验证；实验2已取得受限PHY的Jetson上行CSI正结果；AP阶段仍为待执行计划。沿用本文件作为唯一ESP测试入口，不另建重复的“ESP32_CSI测试计划.md”。
 
 ## 执行前版本门禁
 
@@ -174,7 +174,7 @@ ESP是实际无线接收端，首轮20MHz；STA按双方能力协商，不沿用
 
 - 全系列说明只适用于官方明确列出的Wi-Fi芯片ESP32/S2/C3/S3/C5/C6/C61；不扩大到无Wi-Fi的H2/P4宿主。本板已明确C5标识，不再等待第二块ESP来开始基线。
 - len按target、PHY、20/40MHz、STBC/LTF、CSI配置建立合法集合，不要求单一值。[#238](https://github.com/espressif/esp-csi/issues/238)的114/228是特定案例；先解析metadata和输出单位，不直接删除不同长度，也不直接盲拆复数。
-- 原版baseline先保留现有字段；增强版记录rx_channel_estimate_info_vld（1为有效）、first_word_invalid、rx_state（0为接收成功），并按所选SDK处理无效范围。本地5.5.5头文件已找到这些字段；本次first_word_invalid为0，但valid/rx_state仍未导出；缺字段写unknown，不伪造有效。
+- 原版baseline先保留现有字段；增强版记录rx_channel_estimate_info_vld（1为有效）、first_word_invalid、rx_state（0为接收成功），并按所选SDK处理无效范围。本地5.5.5头文件已找到这些字段；router原版未导出valid/rx_state，实验2独立sniffer已导出并核验；缺字段写unknown，不伪造有效。
 - USB串口是默认导出路径，不改为同一测量Wi-Fi高频UDP回传。[#265](https://github.com/espressif/esp-csi/issues/265)是社区收包/时延问题报告，不能当必然缺陷。若实测printf瓶颈再升级为queue/ring buffer→独立task→binary framing，保存版本/CRC/溢出统计。
 - 精确关联阶段分别统计发送业务数、原始无线帧数、CSI数、唯一关联数；无线帧不可观测写未测。UDP可能聚合/重传/分片，不能宣称一包=一帧=一条CSI。
 - ESP timestamp、Windows落盘时间、Jetson墙钟不是同一时钟域；未同步不直接计算单向延迟。CSV本地序号不替代sample_id。
@@ -216,3 +216,11 @@ CSI len分布/有效无效未知/串口丢失：待填
 - 300.03秒（含启动联网）采集28861条AP→ESP CSI；首末CSI时间跨度285.141275秒，观察记录率101.213条/秒。全部来源AP BSSID，打印len106与数组对应；解析/长度错误、本地seq中断、全零数组均0。
 - 这不证明每条channel estimate物理有效（原版未导出valid）、Jetson监听或业务关联。len106仅本次观察，不能写死验收。
 - 结果：[路由器基线报告](ESP32测试/结果/c5_router_20261014/ESP32-C5_路由器CSI基线结果.md)。原Flash已备份，COM10已释放，板上router固件仍运行。
+
+## 当前已完成的实验2结果（独立固件）
+
+- [独立结果报告](ESP32测试/结果/c5_sniffer_jetson_20261014_online_v3/ESP32-C5_被动监听Jetson_PoC结果.md)：sniffer-3/IDF5.5.5，WIFI_MODE_NULL/149，无AP关联或ESP IP流量，不复用router BSSID过滤，不重复实验1。
+- 在线300.203秒目标FRAME43915（Data470），CSI总197959/目标43915，SDK有效DataCSI470；落盘有效上行DataCSI311，241组与FRAME同timestamp/TA/FC/seq，判D。
+- 仅legacy OFDM格式1/len106，不是VHT80 CSI；rx_bw未知。目标密集CTRL导致UART queue drop（FRAME目标26263/CSI目标18709），host FRAME JSON错误1，callback与导出计数分列，不声称完整覆盖/业务关联。
+- 旧v2零结果因用户关机、目标未确认全程在线而无效；用户开机后重新SSH/MAC/信道确认再做v3。Agent未修改Jetson网络/ROS/服务，结束SSH仍正常；STOP后ESP采集停止、COM10释放，设备当前sniffer-3，不是router固件。
+- 无需因本轮进入AP Plan B或立即做20MHz失败对照；现场无对照设备，将来覆盖/性能研究再安排。下一步优先输出过滤/队列/二进制优化，sample_id仍未做。

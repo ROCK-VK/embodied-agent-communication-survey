@@ -30,3 +30,9 @@
 本仓库不包含sdkconfig、带Wi-Fi凭据的固件、原Flash备份、原始串口/SSH输出、安装器或源码ZIP。公开统计不能替代原始帧复核，也不宣称UDP=Wi-Fi帧=CSI、Jetson监听已成功或所有记录物理有效。
 
 用户已持续授权：每次完成有效修改或实验后，同步本地日志、验证公开白名单副本、commit/push并核对远端；推送失败需明确报告，不强推覆盖。
+
+## 实验2最新结果
+
+[被动监听结果D](ESP32测试/结果/c5_sniffer_jetson_20261014_online_v3/ESP32-C5_被动监听Jetson_PoC结果.md)：在线300秒目标FRAME43915（Data470）、CSI目标43915；落盘有效上行DataCSI311，241组同帧元数据确认。仅legacy OFDM，不是VHT80 CSI。UART queue drop与1条JSON错误已量化，完整覆盖未验证；Agent未改Jetson，当前不进入AP Plan B。
+
+[独立固件与核验](ESP32测试/sniffer_jetson/联网核验与实现说明.md)、[采集脚本](ESP32测试/sniffer_jetson/capture_sniffer.py)。初次目标关机的零结果不作能力判断；本轮结束ESP CSI/prom已STOP，COM已释放。

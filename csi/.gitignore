@@ -15,3 +15,6 @@ __pycache__/
 .venv*/
 源码/
 日志/
+
+# Safe defaults for standalone sniffer, no credentials
+!/ESP32测试/sniffer_jetson/sdkconfig.defaults
