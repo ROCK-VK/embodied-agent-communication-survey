@@ -1,0 +1,19 @@
+{
+  "seeds": [11, 23, 37, 51, 71],
+  "scenarios": ["redundant", "sensor_shift"],
+  "n_stream": 1500,
+  "n_test": 1000,
+  "n_features": 8,
+  "n_classes": 3,
+  "window_size": 100,
+  "budget_ratios": [0.25, 0.5, 1.0],
+  "strategies": ["all", "interval", "random", "confidence", "uncertainty", "novelty"],
+  "fixed_updates": 50,
+  "batch_size": 40,
+  "wall_budget_ms": 50,
+  "annotation_bytes_per_sample": 5,
+  "clock": "simulated timestamp seconds for payload; perf_counter for wall-clock compute budget",
+  "model": "SGDClassifier(loss=log_loss, alpha=0.001, learning_rate=constant, eta0=0.03)",
+  "scope": "synthetic features, teaching simulation, not physical robot results"
+}
+

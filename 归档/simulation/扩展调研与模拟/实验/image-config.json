@@ -1,0 +1,41 @@
+{
+  "seeds": [
+    11,
+    23,
+    37,
+    51,
+    71
+  ],
+  "scenarios": [
+    "redundant",
+    "sensor_shift",
+    "annotation_noise"
+  ],
+  "ratios": [
+    0.1,
+    0.25,
+    0.5
+  ],
+  "strategies": [
+    "interval",
+    "random",
+    "confidence",
+    "uncertainty",
+    "diverse_cost"
+  ],
+  "learning_work": [
+    800,
+    2400
+  ],
+  "stream_frames": 1400,
+  "window": 100,
+  "batch": 40,
+  "repeat_probability": 0.65,
+  "annotation_noise": 0.2,
+  "annotation_bytes": 5,
+  "candidate_weights": {
+    "entropy_floor": 0.2,
+    "novelty_floor": 0.2
+  },
+  "scope": "digits images are not robot-camera data; IMU and payload padding are synthetic"
+}

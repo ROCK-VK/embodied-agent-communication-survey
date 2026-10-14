@@ -1,0 +1,27 @@
+{
+  "sdk": "1.2.1",
+  "protocol": "1.0",
+  "transport": "JSON-RPC over real HTTP/TCP loopback; SSE",
+  "bind": "127.0.0.1 ephemeral port",
+  "samples": 20,
+  "rpc_checks": 6,
+  "checks": {
+    "discovery": true,
+    "send_message": true,
+    "get_task": true,
+    "stream_working_completed": true,
+    "artifact": true,
+    "cancel": true,
+    "unknown_method_error": true,
+    "missing_task_error": true
+  },
+  "stream_statuses": [
+    "TASK_STATE_WORKING",
+    "TASK_STATE_COMPLETED"
+  ],
+  "send_message_latency_ms": 162.56339999381453,
+  "latency_scope": "Single local run with intentional 150ms task delay; not a protocol benchmark",
+  "full_wire_bytes_measured": false,
+  "llm_required": false,
+  "server_shutdown_after_test": true
+}

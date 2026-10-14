@@ -1,74 +1,52 @@
-# 智能体与具身智能通信协议调研
+# 机器狗 Wi-Fi CSI 采集与验证
 
-**项目：基于多模态机器狗的通感算控一体化平台搭建**
+当前任务：复用 Jetson 的 RTL8821CU 作为普通 Wi-Fi 发送端，由固定接收节点采集 CSI；先确认来源与采集质量，再研究业务样本、时间和位姿关联。
 
-本仓库整理单智能体模块接口、消息格式与数据传输机制，并进一步研究感知结果在通信/计算开销约束下的选择，以及网络通信与A2A智能体任务协作。
+更新时间：2026-10-14。此前通信协议、ROS/DDS、网络/A2A及感知数据选择模拟成果已移入[归档](归档/README.md)。
 
-**最新进展（2026-10-14）：已完成ESP32-C5单板路由器CSI实测基线：5GHz/149、C5 BW20，5分钟窗口28861条记录。当前三路线为ESP32-C5 / Pi4B Nexmon CSI / AX210 PicoScenes；实验2已取得Jetson→ESP的legacy上行数据CSI；业务关联、全PHY覆盖及Pi部署仍待验证。Atheros保留历史参考/备用。**
+## 当前进展
 
-## 阅读入口
+| 实验 | 状态与证据 | 范围 |
+|---|---|---|
+| ESP32-C5单板 Router baseline | 已通过；5GHz/149、C5协商BW20，5分钟窗口28861条CSI | AP→ESP；不代表Jetson监听 |
+| ESP32-C5被动监听Jetson | 已通过D；目标帧43915次（Data470），CSI目标43915次；落盘有效上行DataCSI311条，241组同帧元数据确认 | Jetson→ESP的legacy OFDM上行数据；不是VHT80 CSI或完整覆盖 |
+| Pi4B + Nexmon CSI | 方案与版本门禁已整理，尚未部署验证 | 待实机 |
+| packet_id/sample_id、传感器时间与位姿关联 | 尚未执行 | CSI存在性不等于业务关联 |
 
-| 想了解的内容 | 文档 |
-|---|---|
-| 最新结果、学长要求对应情况和结论 | [综合模拟报告](simulation/扩展调研与模拟/综合模拟报告.md) |
-| 当前CSI方案与实测结果 | [第三阶段CSI入口](csi/README.md)、[C5 router基线](csi/ESP32测试/结果/c5_router_20261014/ESP32-C5_路由器CSI基线结果.md)；旧[Atheros计划](simulation/CSI调研与实操计划.md)仅历史参考 |
-| 网络通信分层，A2A/gRPC/MQTT/Zenoh用途 | [网络与智能体通信调研](simulation/网络调研.md)，结合综合报告第11、12节 |
-| ROS、DDS与宇树公开消息接口 | [单智能体通信协议调研报告](单智能体通信协议调研报告.md)、[实验模块接口](simulation/模块接口.md) |
-| 宇树基础操作资料与Orin NX配置假设 | [宇树与Orin基础操作](simulation/扩展调研与模拟/宇树与Orin基础操作.md) |
-| 代码、结果、环境与复现 | [模拟成果入口](simulation/README.md)、[发布与复现说明](simulation/发布说明.md) |
-| 参考资料和证据边界 | [基础资料索引](docs/资料索引.md)、[本阶段资料索引](simulation/扩展调研与模拟/资料索引.md) |
+实验2保持Jetson原Wi-Fi与eth0配置、ROS和服务不变，ESP以NULL模式监听149，经UART导出。首次目标关机的零结果不计为能力失败；开机复核后的正结果单独保存。
 
-## 任务与完成情况
+当前限制：密集控制帧使UART文本导出出现队列丢弃及1条JSON解析错误。回调计数和落盘数分开统计，不能将导出丢失视为空口CSI缺失率，也不能宣称一条UDP=一帧Wi-Fi=一条CSI。
 
-最初任务是从单智能体模块接口、消息格式和数据传输入手，后续考虑多智能体通信。结合Orin NX背景、ROS1更多的反馈，以及感知数据价值选择和网络/A2A建议，本阶段完成：
+## 当前路线
 
-| 方向 | 已完成的调研或模拟 |
-|---|---|
-| 感知数据选择 | 首阶段360组合成特征试验；新增480组公开图像选择/训练对照，检验字节预算、训练工作量与独立测试指标 |
-| 优化边界 | 小规模可加代理目标的精确背包解与穷举一致；未证明训练效果最优 |
-| ROS通信 | ROS1模块链路与异常场景；ROS2同契约和QoS兼容验证 |
-| 实际本地网络 | 独立Docker容器间TCP、UDP、ROS1共7场景，验证延迟/丢包/限速、TTL与重连去重 |
-| A2A任务协作 | 两个独立服务，验证发现、真实结果委派、SSE断开后查询、取消与错误、已完成任务重启恢复等11项检查 |
-| 设备准备 | 阅读7篇宇树官方基础资料，整理Orin/JetPack/ROS版本假设和待实机核对步骤 |
-| Wi-Fi CSI方案 | C5单板router真实CSI基线已完成，当前三路线与版本门禁已整理；Jetson监听/业务关联/Pi仍待验证 |
+1. **ESP32-C5 + Espressif esp-csi**：当前主验证路线，已有1块C5 v1.0/4MB板，固定ESP-IDF5.5.5。
+2. **Raspberry Pi 4B + Nexmon CSI**：后续固定CSI节点路线；先核对OS/kernel/firmware，再按维护者流程部署。
+3. **Intel AX210 + x86 Linux + PicoScenes**：按需升级路线；原生x86平台，不部署在Jetson ARM、树莓派ARM或WSL。
 
-复杂筛选策略没有稳定优于随机/间隔基线，负结果保留。A2A属于应用层任务协作，适合分析与协调；ROS/DDS负责感知数据流，IP与TCP/UDP承担网络及传输职责。A2A本身不解决最优数据选择。
+Atheros CSI Tool仅作历史参考/备用；FeitCSI已退出当前主方案。当前无需进入ESP AP Plan B或切换Jetson网络。
 
-## 结果与范围
+## 阅读与代码入口
 
-此前的模拟阶段包含图表、逐次试验、配置、接收数据训练结果及24项原始本地综合审计。它们证明本地模拟机制运行，不能推断真实机器狗、Orin NX的性能或无线链路效果。旧simulation/CSI文档记录桌面调研与历史候选步骤；最新C5实测结果见csi/，范围仅AP→ESP，不能扩大为Jetson监听成功。
+- [CSI阶段总览](csi/README.md)、[三路线与PoC边界](csi/CSI当前路线与PoC验证.md)
+- [ESP32-C5测试方案](csi/ESP32_CSI测试方案.md)、[Pi4B Nexmon测试方案](csi/树莓派4B_Nexmon_CSI测试方案.md)
+- [Router基线报告](csi/ESP32测试/结果/c5_router_20261014/ESP32-C5_路由器CSI基线结果.md)
+- [实验2被动监听报告](csi/ESP32测试/结果/c5_sniffer_jetson_20261014_online_v3/ESP32-C5_被动监听Jetson_PoC结果.md)
+- [独立监听固件](csi/ESP32测试/sniffer_jetson/main/sniffer.c)、[UART采集脚本](csi/ESP32测试/sniffer_jetson/capture_sniffer.py)、[联网核验与实现说明](csi/ESP32测试/sniffer_jetson/联网核验与实现说明.md)
+- [Jetson只读盘点](csi/Jetson只读补查_2026-10-13.md)、[网络/扩展接口](csi/Jetson网络与扩展接口只读确认_2026-10-13.md)
+- [公开更新记录](csi/更新记录.md)、[历史阶段归档](归档/README.md)
 
-机器狗具体型号、内存、载板、JetPack、固件与真实运行版本仍未确认；Go2 EDU、NX16GB与JetPack5.1.1只是明确标注的工作假设。尚未验证原生宇树DDS/ROS1桥接、真实多模态训练、跨设备时钟与无线通信、硬件功耗或执行中任务崩溃续跑。
+## 下一步
 
-阶段工作安排与完成情况见[工作计划](simulation/工作计划.md)和[任务回顾](simulation/任务回顾.md)；扩展调研与模拟目标及验收见[目标与计划](simulation/扩展调研与模拟/目标与计划.md)。
+- 优先减少控制帧导出、保留全量计数并优先输出Data，评估队列/二进制记录，重新验证导出损失。
+- 准备Pi4B的专用系统、管理通道和版本门禁；按独立方案执行。
+- 按需开展20MHz普通STA对照和PHY覆盖研究；目前现场缺对照设备。
+- 采集质量明确后再研究业务标识和时间/位姿关联，不提前接入相机、雷达大流量。
 
-## 发布内容
+## 仓库结构与发布范围
 
-公开调研、代码、结构化结果、图表和引用链接。日志、抓包、任务数据库、虚拟环境、缓存及本机私有配置不上传。参考文档使用链接与必要摘要，派生图像数据遵循[数据来源与许可说明](simulation/扩展调研与模拟/数据说明与许可.md)。
+```text
+csi/       当前CSI方案、独立代码、匿名结果与更新记录
+归档/      此前协议调研、资料索引、模拟代码与结果
+```
 
-## 参考文献与开源资料
-
-核验日期：2026-09-27。GitHub 核心证据固定到提交；动态官方页面以访问日为准，设备适配仍需按实际版本复核。详细证据边界见 [资料索引](docs/资料索引.md)。
-
-- [1] [ROS 2 Humble 基本概念（官方源码）](https://github.com/ros2/ros2_documentation/blob/35b00f1f3c1ab7c14bf85e35fa895f9f580ea279/source/Concepts/Basic/About-Nodes.rst)
-- [2] [Unitree ROS 2 README](https://github.com/unitreerobotics/unitree_ros2/blob/668d1ec5a05d1c38d3306bdca7d59f2ba3581a88/README.md)
-- [3] [Unitree Python SDK2 README](https://github.com/unitreerobotics/unitree_sdk2_python/blob/814556d15970dd2ecf1c9984e845ca02ab07e206/README.md)
-- [4] [ROS 2 msg/srv/action 定义](https://design.ros2.org/articles/legacy_interface_definition.html)
-- [5] [SportModeState.msg](https://github.com/unitreerobotics/unitree_ros2/blob/668d1ec5a05d1c38d3306bdca7d59f2ba3581a88/cyclonedds_ws/src/unitree/unitree_go/msg/SportModeState.msg)
-- [6] [Go2 DDS 通道源码](https://github.com/unitreerobotics/unitree_sdk2/blob/63096d0ac0c5d2dec9d6e0c22cd5233410ca2f36/include/unitree/dds_wrapper/robots/go2/go2_pub.h)
-- [7] [ROS 2 Humble 中间件实现（官方源码）](https://github.com/ros2/ros2_documentation/blob/35b00f1f3c1ab7c14bf85e35fa895f9f580ea279/source/Concepts/Intermediate/About-Different-Middleware-Vendors.rst)
-- [8] [ROS 2 Humble QoS（官方源码）](https://github.com/ros2/ros2_documentation/blob/35b00f1f3c1ab7c14bf85e35fa895f9f580ea279/source/Concepts/Intermediate/About-Quality-of-Service-Settings.rst)
-- [9] [Python channel.py](https://github.com/unitreerobotics/unitree_sdk2_python/blob/814556d15970dd2ecf1c9984e845ca02ab07e206/unitree_sdk2py/core/channel.py)
-- [10] [Zenoh ROS 2 DDS bridge README](https://github.com/eclipse-zenoh/zenoh-plugin-ros2dds/blob/d99c1b0ce24f0ec5bb238db2cf6485756fbf71e9/README.md)
-- [11] [Macenski et al. 2022：作者预印本与期刊 DOI 元数据](https://arxiv.org/abs/2211.07752)
-- [12] [Zhang et al. 2024：出版社摘要与书目信息](https://link.springer.com/article/10.1007/s10846-024-02187-z)
-- [13] [Unitree Request.msg](https://github.com/unitreerobotics/unitree_ros2/blob/668d1ec5a05d1c38d3306bdca7d59f2ba3581a88/cyclonedds_ws/src/unitree/unitree_api/msg/Request.msg)
-- [14] [Go2 Python SportClient](https://github.com/unitreerobotics/unitree_sdk2_python/blob/814556d15970dd2ecf1c9984e845ca02ab07e206/unitree_sdk2py/go2/sport/sport_client.py)
-- [15] [ROS 2 SportClient 源码](https://github.com/unitreerobotics/unitree_ros2/blob/668d1ec5a05d1c38d3306bdca7d59f2ba3581a88/example/src/src/common/ros2_sport_client.cpp)
-- [16] [ROS 2 话题到 DDS 名称映射](https://design.ros2.org/articles/topic_and_service_names.html)
-- [17] [OMG DDSI-RTPS 2.5 标准页](https://www.omg.org/spec/DDSI-RTPS/2.5/About-DDSI-RTPS)
-- [18] [ROS 2 rmw_zenoh 官方仓库](https://github.com/ros2/rmw_zenoh)
-- [19] [MCP 官方介绍](https://modelcontextprotocol.io/docs/2026-07-28/getting-started/intro)
-- [20] [A2A 官方介绍](https://a2a-protocol.org/latest/topics/what-is-a2a/)
-- [21] [MQTT 官方介绍](https://mqtt.org/)
-- [22] [gRPC 官方介绍](https://grpc.io/docs/what-is-grpc/introduction/)
+公开文档、独立代码、匿名统计和版本/产物哈希；现场SSID/MAC/私网地址已匿名化，占位符需替换才能复现。不上传密码、带凭据配置/固件、原Flash、敏感原始日志或生成依赖。每次完成有效工作后同步日志、commit/push并核对远端。

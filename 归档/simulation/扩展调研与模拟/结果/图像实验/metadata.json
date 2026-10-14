@@ -1,0 +1,58 @@
+{
+  "dataset": "sklearn bundled UCI digits: 1797 8x8 handwritten digit images, ten classes",
+  "dataset_url": "https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_digits.html",
+  "config": {
+    "seeds": [
+      11,
+      23,
+      37,
+      51,
+      71
+    ],
+    "scenarios": [
+      "redundant",
+      "sensor_shift",
+      "annotation_noise"
+    ],
+    "ratios": [
+      0.1,
+      0.25,
+      0.5
+    ],
+    "strategies": [
+      "interval",
+      "random",
+      "confidence",
+      "uncertainty",
+      "diverse_cost"
+    ],
+    "learning_work": [
+      800,
+      2400
+    ],
+    "stream_frames": 1400,
+    "window": 100,
+    "batch": 40,
+    "repeat_probability": 0.65,
+    "annotation_noise": 0.2,
+    "annotation_bytes": 5,
+    "candidate_weights": {
+      "entropy_floor": 0.2,
+      "novelty_floor": 0.2
+    },
+    "scope": "digits images are not robot-camera data; IMU and payload padding are synthetic"
+  },
+  "config_sha256": "f672e430318857377c23d4f5f9c2a27b0d1d166b3cfc3683e7cdc3be5749580d",
+  "python": "3.13.9",
+  "trials": 480,
+  "wall_seconds": 54.751445199974114,
+  "cpu_seconds": 54.625,
+  "average_cpu_percent_one_core": 99.76905595913992,
+  "logical_cpu_count": 32,
+  "peak_process_working_set_mib": 182.05859375,
+  "cpu_scope": "whole experiment before CSV/plot output; user+kernel CPU time/wall; Windows timer quantization averaged over complete run",
+  "learning_budget_scope": "exact additional training examples processed, including repeated minibatch draws; common 600-example warm start excluded",
+  "resource_scope": "Windows x86 CPU, not Orin NX/GPU; selection and training costs separately measured",
+  "annotation_scope": "offline lookup with 5-byte simulated annotation charge; no physical annotation network implemented",
+  "test_scope": "source IDs split before repeats/transforms; test never used for selection, fitting or hyperparameter tuning"
+}

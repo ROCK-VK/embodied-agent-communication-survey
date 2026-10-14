@@ -1,0 +1,84 @@
+{
+  "objective": "sum integerized 0.2 + teacher entropy, no labels/test input",
+  "scope": "exact optimum only for this additive 14-item proxy; not optimal training performance; diverse_cost has a different nonadditive proxy",
+  "costs": [
+    955,
+    574,
+    471,
+    443,
+    472,
+    953,
+    472,
+    450,
+    480,
+    477,
+    446,
+    571,
+    476,
+    478
+  ],
+  "values": [
+    817,
+    2042,
+    1615,
+    1615,
+    1314,
+    1314,
+    1314,
+    323,
+    323,
+    2110,
+    2110,
+    2110,
+    1452,
+    1452
+  ],
+  "cases": [
+    {
+      "ratio": 0.1,
+      "budget": 771,
+      "optimal_proxy_value": 2110,
+      "optimal_spent": 446,
+      "optimal_indices": [
+        10
+      ],
+      "greedy_proxy_value": 2110,
+      "greedy_gap": 0,
+      "exhaustive_verified": true
+    },
+    {
+      "ratio": 0.25,
+      "budget": 1929,
+      "optimal_proxy_value": 7450,
+      "optimal_spent": 1837,
+      "optimal_indices": [
+        2,
+        3,
+        9,
+        10
+      ],
+      "greedy_proxy_value": 6330,
+      "greedy_gap": 1120,
+      "exhaustive_verified": true
+    },
+    {
+      "ratio": 0.5,
+      "budget": 3859,
+      "optimal_proxy_value": 13778,
+      "optimal_spent": 3834,
+      "optimal_indices": [
+        2,
+        3,
+        4,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "greedy_proxy_value": 13054,
+      "greedy_gap": 724,
+      "exhaustive_verified": true
+    }
+  ]
+}

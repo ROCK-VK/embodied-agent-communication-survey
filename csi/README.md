@@ -21,7 +21,7 @@
 - [C5 router实测报告](ESP32测试/结果/c5_router_20261014/ESP32-C5_路由器CSI基线结果.md)
 - [串口采集脚本](ESP32测试/capture_router.py)、[离线统计脚本](ESP32测试/analyze_router.py)
 - [采集统计](ESP32测试/结果/c5_router_20261014/capture_summary.json)、[离线统计](ESP32测试/结果/c5_router_20261014/analysis_summary.json)、[版本/产物哈希](ESP32测试/结果/c5_router_20261014/manifest.json)
-- [公开更新记录](更新记录.md)、[此前模拟成果](../simulation/README.md)
+- [公开更新记录](更新记录.md)、[此前模拟成果](../归档/simulation/README.md)
 
 ## 复现边界
 

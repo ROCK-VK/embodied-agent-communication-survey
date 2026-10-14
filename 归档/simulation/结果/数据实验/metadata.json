@@ -1,0 +1,53 @@
+{
+  "config": {
+    "seeds": [
+      11,
+      23,
+      37,
+      51,
+      71
+    ],
+    "scenarios": [
+      "redundant",
+      "sensor_shift"
+    ],
+    "n_stream": 1500,
+    "n_test": 1000,
+    "n_features": 8,
+    "n_classes": 3,
+    "window_size": 100,
+    "budget_ratios": [
+      0.25,
+      0.5,
+      1.0
+    ],
+    "strategies": [
+      "all",
+      "interval",
+      "random",
+      "confidence",
+      "uncertainty",
+      "novelty"
+    ],
+    "fixed_updates": 50,
+    "batch_size": 40,
+    "wall_budget_ms": 50,
+    "annotation_bytes_per_sample": 5,
+    "clock": "simulated timestamp seconds for payload; perf_counter for wall-clock compute budget",
+    "model": "SGDClassifier(loss=log_loss, alpha=0.001, learning_rate=constant, eta0=0.03)",
+    "scope": "synthetic features, teaching simulation, not physical robot results"
+  },
+  "runs": 360,
+  "wall_seconds": 23.750794099993072,
+  "process_peak_working_set_mb": 178.59765625,
+  "memory_scope": "Windows process peak working set; includes interpreter/libraries, not GPU or Docker",
+  "config_sha256": "91f0c6b520fff24fb7d6535b7fd115b5d948cccb1290166f7f8d5bc90f9ba4e5",
+  "clock": "Wall-clock budget is soft: checked between mini-batches; max overrun recorded",
+  "annotation": "5 bytes/sample (uint32 seq+uint8 label), simulated perfect label lookup at receiver; charged in every budget",
+  "selector_label_access": false,
+  "test_used_for_selection": false,
+  "common_cost": "Teacher prediction charged once per whole stream in each trial; data generation/serialization excluded from wall-clock compute budget, common preprocessing",
+  "novelty": "Full-window farthest-point ranking, O(window^2); extra cost explicitly counted",
+  "all": "Full transmission is a reference, may exceed byte budget, not an optimality upper bound",
+  "holdout": "Independent draws; repeated training observations do not cross into test; no hyperparameter tuning"
+}

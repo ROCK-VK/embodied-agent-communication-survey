@@ -1,0 +1,106 @@
+[
+  {
+    "name": "/embodied-phase2-master",
+    "image": "sha256:0a1bb6d4d1d457c933e813619af903fa1f41fad71754326ef997138cd26e0eff",
+    "networks": {
+      "embodied-phase2_isolated": {
+        "IPAMConfig": null,
+        "Links": null,
+        "Aliases": [
+          "embodied-phase2-master",
+          "master"
+        ],
+        "DriverOpts": null,
+        "GwPriority": 0,
+        "NetworkID": "12329ab3200f76edac119270b93a8832cc8e42362a08e38780db45fa781112a8",
+        "EndpointID": "30106a1a4240479cc4223f97fb3ca71899cbabb5a0451a5dd489ed56be5a04ab",
+        "Gateway": "",
+        "IPAddress": "172.19.0.4",
+        "MacAddress": "5a:24:d2:9c:53:68",
+        "IPPrefixLen": 16,
+        "IPv6Gateway": "",
+        "GlobalIPv6Address": "",
+        "GlobalIPv6PrefixLen": 0,
+        "DNSNames": [
+          "embodied-phase2-master",
+          "master",
+          "a4bc81d9abeb"
+        ]
+      }
+    },
+    "cpu_quota_nano": 2000000000,
+    "memory_limit": 1073741824,
+    "cap_add": null,
+    "published_ports": {}
+  },
+  {
+    "name": "/embodied-phase2-sender",
+    "image": "sha256:0a1bb6d4d1d457c933e813619af903fa1f41fad71754326ef997138cd26e0eff",
+    "networks": {
+      "embodied-phase2_isolated": {
+        "IPAMConfig": null,
+        "Links": null,
+        "Aliases": [
+          "embodied-phase2-sender",
+          "sender"
+        ],
+        "DriverOpts": null,
+        "GwPriority": 0,
+        "NetworkID": "12329ab3200f76edac119270b93a8832cc8e42362a08e38780db45fa781112a8",
+        "EndpointID": "9f89bca604a5dafb2e3ee23815f4d76e22852257f6571d64a278b7cca51958da",
+        "Gateway": "",
+        "IPAddress": "172.19.0.2",
+        "MacAddress": "a6:26:e8:82:98:81",
+        "IPPrefixLen": 16,
+        "IPv6Gateway": "",
+        "GlobalIPv6Address": "",
+        "GlobalIPv6PrefixLen": 0,
+        "DNSNames": [
+          "embodied-phase2-sender",
+          "sender",
+          "bdbd84a4d6e2"
+        ]
+      }
+    },
+    "cpu_quota_nano": 2000000000,
+    "memory_limit": 1073741824,
+    "cap_add": [
+      "CAP_NET_ADMIN"
+    ],
+    "published_ports": {}
+  },
+  {
+    "name": "/embodied-phase2-receiver",
+    "image": "sha256:0a1bb6d4d1d457c933e813619af903fa1f41fad71754326ef997138cd26e0eff",
+    "networks": {
+      "embodied-phase2_isolated": {
+        "IPAMConfig": null,
+        "Links": null,
+        "Aliases": [
+          "embodied-phase2-receiver",
+          "receiver"
+        ],
+        "DriverOpts": null,
+        "GwPriority": 0,
+        "NetworkID": "12329ab3200f76edac119270b93a8832cc8e42362a08e38780db45fa781112a8",
+        "EndpointID": "11f0f0f24a20f5e1e2b7aa4ff1c8d14e7ad18657fe675e95b9b60e132aa16f26",
+        "Gateway": "",
+        "IPAddress": "172.19.0.3",
+        "MacAddress": "72:94:76:a8:15:b0",
+        "IPPrefixLen": 16,
+        "IPv6Gateway": "",
+        "GlobalIPv6Address": "",
+        "GlobalIPv6PrefixLen": 0,
+        "DNSNames": [
+          "embodied-phase2-receiver",
+          "receiver",
+          "e93b927f772b"
+        ]
+      }
+    },
+    "cpu_quota_nano": 2000000000,
+    "memory_limit": 1073741824,
+    "cap_add": null,
+    "published_ports": {}
+  }
+]

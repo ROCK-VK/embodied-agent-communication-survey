@@ -1,0 +1,110 @@
+{
+  "status": "passed",
+  "checks": [
+    "480 unique public-image trials",
+    "exact additional learner work",
+    "finite accuracy/F1 and valid annotation accounting",
+    "all window byte budgets",
+    "independent per-window/total-byte conservation",
+    "all 15 source-ID holdouts disjoint before repetition",
+    "config hash and real aggregate resource evidence",
+    "selection function has no label/test inputs",
+    "sender contract excludes truth labels",
+    "selected replay agrees without labels/test",
+    "exact proxy solver independently enumerated",
+    "different real network namespaces/IPs and no published ports",
+    "all seven send/receive/TTL/duplicate/budget conservation checks",
+    "actual accepted files match receiver training inputs",
+    "private PCAP sizes and peer isolation independently parsed",
+    "all eleven live A2A checks",
+    "A2A artifact bound to actual receiver and training evidence",
+    "persistent application cache has exactly two business results",
+    "both official TaskStores persist completed tasks on disk",
+    "hypothetical inventories explicitly marked and negative rejected",
+    "all seven official source snapshot hashes",
+    "official dock source really read",
+    "other projects unchanged",
+    "phase2 containers stopped"
+  ],
+  "check_count": 24,
+  "source_files": [
+    {
+      "path": "\u5b9e\u9a8c/a2a_workflow.py",
+      "sha256": "197e55ee75e59621e61fee695577be765e1e48f602a44008a25d98e2d34aaf21"
+    },
+    {
+      "path": "\u5b9e\u9a8c/audit_phase2.py",
+      "sha256": "34ecd8e4b89e7f0bb15652be3d457ca00d5366b7599513f7e5250bdafb03642e"
+    },
+    {
+      "path": "\u5b9e\u9a8c/build_phase2_report.py",
+      "sha256": "9ac26213cb76da32c6b6d6860a3927befc797dd0ea2dffa21449c781de0e547d"
+    },
+    {
+      "path": "\u5b9e\u9a8c/capture_environment.py",
+      "sha256": "1f2754e96a7a2cc1df77747a920693f2614e463f28907838963f9a697f2ba479"
+    },
+    {
+      "path": "\u5b9e\u9a8c/device_profiles.py",
+      "sha256": "18c0f7f5fc384dd970d2e356b172356d1c376387fb7a9ba1443718d909880fdd"
+    },
+    {
+      "path": "\u5b9e\u9a8c/fetch_unitree_docs.py",
+      "sha256": "2f37f8e6803a2ef4692488b62e24e7c954638ca537a34eaede34bf1bee28102f"
+    },
+    {
+      "path": "\u5b9e\u9a8c/image-config.json",
+      "sha256": "f672e430318857377c23d4f5f9c2a27b0d1d166b3cfc3683e7cdc3be5749580d"
+    },
+    {
+      "path": "\u5b9e\u9a8c/image_selection.py",
+      "sha256": "7b97dd5bed5657abe2926ce80fb0e765ea05c640d42807d07e9b87329f28f656"
+    },
+    {
+      "path": "\u5b9e\u9a8c/netnode.py",
+      "sha256": "33b8317a0909657fc1b7077a574faf7f570154f432e08146afce1e76e997ce44"
+    },
+    {
+      "path": "\u5b9e\u9a8c/network_suite.py",
+      "sha256": "03c79c4a513c120f30a1b24fee53b8c42f164a587d6f3522a1298f3d194b003f"
+    },
+    {
+      "path": "\u5b9e\u9a8c/receiver_learning.py",
+      "sha256": "d43a11c1c108d84ea32790a53d965d50c934241b681d49733bf1177a98098115"
+    },
+    {
+      "path": "\u5b9e\u9a8c/surrogate_optimum.py",
+      "sha256": "df5171facc3ab4148321a7ee1b748c69b5dc2b4ef6bf6facba075b3a3c719570"
+    },
+    {
+      "path": "\u73af\u5883/environment-manifest.json",
+      "sha256": "59607b0bf1829fbcd5d86587f18b8a1a2e559600de05e0ecaf1936674394fff0"
+    },
+    {
+      "path": "\u73af\u5883/environment-public.json",
+      "sha256": "df16d8a4b90e9f8bcfca458af9b251185c5354ed03e1be029c2998b2cafa9a79"
+    },
+    {
+      "path": "\u73af\u5883/requirements-a2a.lock.txt",
+      "sha256": "87fc6edb9440086324bdb07214c8293bf668e715162cc6a10ba397b43cfe80b5"
+    },
+    {
+      "path": "\u73af\u5883/requirements-data.lock.txt",
+      "sha256": "1cea6846febe7fa8a9c109c0ba7f03975cbb7c5eea5b0ba2f9f006575ef11a72"
+    },
+    {
+      "path": "compose.yaml",
+      "sha256": "ef4c4c5ea56a1ee1b27760e259123bdd410e936ff6ebd7843551eeb715afc3f1"
+    },
+    {
+      "path": "Dockerfile.network",
+      "sha256": "28267055d18e508084e98fa2bd373aa9415999c363974b99e791be04185112d4"
+    },
+    {
+      "path": "\u590d\u73b0\u4e0b\u4e00\u9636\u6bb5.ps1",
+      "sha256": "b25832b562a1e4ccb596236e840412efdec79ab7e3b538fd0a6b13ca90befa5b"
+    }
+  ],
+  "scope": "local public-image, actual isolated Docker network and loopback A2A verification; not physical robot validation",
+  "private_artifacts_required_for_audit": true
+}
