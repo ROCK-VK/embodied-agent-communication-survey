@@ -10,6 +10,8 @@
 - AX210 PicoScenes：x86原生Linux升级路线；不在Jetson ARM、Pi ARM或WSL部署。FeitCSI退出主方案，Atheros保持历史参考/备用。
 - 后续：单板router→独立promiscuous探索→ESP AP备选（先PC，未来Jetson）→sample_id关联→传感器。Jetson网络/驱动/服务保持现状；VHT80仍为高可信推断。
 
+最新SSH只读复核（2026-10-14 15:48）：认证及hostname命令成功，新增会话已退出；设备配置保持现状。
+
 ## 阅读入口
 
 - [ESP32-C5单板测试方案](ESP32_CSI测试方案.md)
