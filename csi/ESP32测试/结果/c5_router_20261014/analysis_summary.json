@@ -1,0 +1,36 @@
+{
+  "csi_records": 28861,
+  "parse_errors": 0,
+  "lengths": {
+    "106": 28861
+  },
+  "length_mismatches": 0,
+  "source_macs": {
+    "<AP_BSSID>": 28861
+  },
+  "channels": {
+    "149": 28861
+  },
+  "rx_formats": {
+    "1": 28861
+  },
+  "first_word_invalid": {
+    "0": 28861
+  },
+  "all_zero_records": 0,
+  "rssi_min": -61,
+  "rssi_max": -37,
+  "rssi_median": -45,
+  "csi_time_span_s": 285.141275,
+  "observed_records_per_s": 101.21298643979199,
+  "seq_discontinuities": 0,
+  "boot_evidence": [
+    "I (224) app_init: ELF file SHA256:  7636c6df0...",
+    "I (225) app_init: ESP-IDF:          v5.5.5",
+    "W (9629) wifi:(vht)BSS bandwidth:80MHz",
+    "I (12591) wifi:ifidx:0, rssi:-46, nf:-96, phytype(0x3, CBW20-SGI), phymode(0x6, 11ac), max_rate:144, he:0, vht:1, ht:1",
+    "I (12831) wifi:connected with <TEST_AP_SSID>, aid = 2, channel 149, BW20(ABOVE, 00), bssid = <AP_BSSID>",
+    "I (14831) csi_recv_router: got ip:<ESP_IP>, gw: <AP_GATEWAY>"
+  ],
+  "channel_estimate_validity": "unknown: upstream does not export valid flag; nonzero is not proof of physical validity"
+}

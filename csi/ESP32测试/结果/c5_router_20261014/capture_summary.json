@@ -1,0 +1,26 @@
+{
+  "duration_s": 300.03,
+  "port": "COM10",
+  "baud": 921600,
+  "counts": {
+    "serial_lines": 28981,
+    "csi_records": 28861,
+    "length_matches_array": 28861
+  },
+  "lengths": {
+    "106": 28861
+  },
+  "source_macs": {
+    "<AP_BSSID>": 28861
+  },
+  "channels": {
+    "149": 28861
+  },
+  "first_word_invalid": {
+    "0": 28861
+  },
+  "seq_first": 0,
+  "seq_last": 28860,
+  "valid_field": "not_exported_by_upstream",
+  "scope": "AP-to-ESP router baseline; no packet_id association"
+}

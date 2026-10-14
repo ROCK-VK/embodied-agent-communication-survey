@@ -1,0 +1,17 @@
+# Local credentials, firmware, backups and generated dependencies
+sdkconfig*
+.env*
+*.bin
+*.elf
+*.a
+*.map
+*.log
+*.zip
+*.pcap*
+original_flash*
+build*/
+managed_components/
+__pycache__/
+.venv*/
+源码/
+日志/

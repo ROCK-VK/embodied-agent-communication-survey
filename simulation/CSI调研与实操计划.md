@@ -1,3 +1,5 @@
+> 最新CSI进展（2026-10-14）：[第三阶段方案与结果](../csi/README.md)。C5单板router基线已完成；Pi4B Nexmon/AX210 PicoScenes保留，Jetson监听与业务关联待验证。本文Atheros路线保留为历史参考/备用。
+
 # 机器狗上行数据与 Wi-Fi CSI 采集计划
 
 更新日期：2026-10-11

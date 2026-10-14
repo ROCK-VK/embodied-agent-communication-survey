@@ -1,0 +1,44 @@
+{
+  "chip": "ESP32-C5",
+  "revision": "v1.0",
+  "flash_size_bytes": 4194304,
+  "base_mac": "<ESP_BASE_MAC>",
+  "port": "COM10",
+  "usb_bridge": "CH343 (Windows screenshot)",
+  "idf": "5.5.5",
+  "esp_csi_commit": "8633d67152db2808f141cc1595970aa9cf406045",
+  "app_source_sha256": "68fc52b4ac5c2e2907f9269618fbd2891740bc428373c4a251d543a5e5c37ea2",
+  "upstream_app_diff": "none",
+  "ssid": "<TEST_AP_SSID>",
+  "planned_band": "5GHz",
+  "ap_channel_windows": 149,
+  "esp_actual_bandwidth": "BW20 (connection log)",
+  "console_baud": 921600,
+  "firmware_status": "flash verified and router baseline observed for 300.03s including boot/association",
+  "management": "Windows UART; Jetson untouched",
+  "build_entry": "CMake -S D:/CSI_Router -B D:/CSI_Build (junctions to stage3)",
+  "cmake_project_name": "CSI_Router",
+  "build_generated_path_fix": "replace actual Chinese source prefix with D:/CSI_Router in build.ninja and linker rsp",
+  "firmware_files": {
+    "bootloader/bootloader.bin": {
+      "sha256": "7ded5b3e4f9e7cbe1f2606a38953b5b928eb4df7957d82eb51b511a6e557b408",
+      "bytes": 22112
+    },
+    "CSI_Router.bin": {
+      "sha256": "954a4d33b2d34e175bcaa2a30d9e709a15b158ac43150ce1ac6f8aed57d2c9b6",
+      "bytes": 908288
+    },
+    "partition_table/partition-table.bin": {
+      "sha256": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820",
+      "bytes": 3072
+    }
+  },
+  "esp_ipv4": "<ESP_IP>",
+  "esp_gateway": "<AP_GATEWAY>",
+  "app_elf_sha256": "7636c6df04e4e4df93f53d1e502b0e67ba8c50f356db20851df41d6f8ca68f58",
+  "capture_status": "completed, COM10 released; firmware remains running",
+  "csi_records": 28861,
+  "csi_span_s": 285.141275,
+  "physical_validity": "unknown: channel estimate validity flag not exported",
+  "serial_raw_sha256": "eb5f09e6680fdbeb6c5878f6c9b302e6d2fa7b92602047cfd5febf027139778f"
+}
