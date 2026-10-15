@@ -102,5 +102,12 @@ FeitCSI已退出当前主方案，不再采购/部署；此前选择仅保留在
 
 - [物理验证结果](ESP32测试/结果/c5_csi_physical_validation_20261015/CSI物理合理性验证报告.md)：五组加5cm补充共535有效DataCSI，sniffer-4-physical仅Data导出、queue drop0，已STOP；原v3源码保留快照，不与历史结果混同。
 - 用户确认RunA碰线使ESP移动，失效静止对照保留，物理分析排除；C/D/E运动组归一化方差为前后静止3.43/6.13倍，停止后降低。
-- 静态10cm/5cm遮挡与恢复区分不足，完整可重复物理验收未建立；下一步先固定线缆复测有效物理对照，再业务packet_id，不因来源PoC通过而跳过此门槛。
+- 静态10cm/5cm遮挡与恢复区分不足，完整可重复物理验收未建立；物理报告当时建议先固定线缆复测，再业务packet_id。
 - 当前lltf_bit_mode0为12bit，不能套普通8bit复数对；26复数槽、尾2byte及完整DC/载波映射限制见报告。不做绝对校准或VHT80覆盖宣称；Jetson网络/服务不改。
+
+## 2026-10-15后续阶段：UDP packet_id↔CSI离线准备
+
+- 用户决定在部分物理合理性结果后继续最小化数据传输验证。因狗/Jetson关机，本阶段只完成离线工具、协议设计与C5纯构建，没有烧录、SSH、无线发送或实机配对。
+- 探针每包48字节IPv4/UDP负载，包含run_id、packet_id、Jetson monotonic时间和CRC32；sender默认5包/s。Windows接收端统计收到的ID，ESP32-C5 sniffer-5准备记录Protected标志及未保护探针ID，分析器按FRAME metadata与CSI做关联。
+- 当前工作区源码/build为sniffer-5-packet-id，构建bin 0xdb9a0、app分区0x100000/14%余量；C5板上仍为STOP的v4。Python语法、20包本机loopback、合成FRAME→CSI匹配通过。
+- `wifi_csi_info_t`虽有payload/payload_len字段，但这不保证旁路未关联ESP可解密受保护帧。Protected位实测前不承诺packet_id可见；Protected=1时跳过payload，不改Jetson现有Wi-Fi/安全配置。详见[packet_id方案和待办](数据传输与CSI关联方案.md)。

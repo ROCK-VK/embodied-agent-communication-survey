@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "created_utc": "2026-10-15T08:14:52.393226+00:00",
-  "analysis_root": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015",
+  "analysis_root": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015",
   "requested_source_mac": "<JETSON_MAC>",
   "lltf_mode": "12",
   "decoder": {
@@ -19,10 +19,10 @@
   "primary_scope": "offline analysis only; no automatic physical validation pass/fail or fixed percentage threshold",
   "runs": {
     "static1": {
-      "run_directory": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\static1",
+      "run_directory": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\static1",
       "status": "ready",
-      "records_file": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\static1\\records.jsonl",
-      "summary_file": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\static1\\summary.json",
+      "records_file": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\static1\\records.jsonl",
+      "summary_file": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\static1\\summary.json",
       "json_object_records_read": 67,
       "json_parse_errors": 0,
       "non_object_json_lines": 0,
@@ -734,10 +734,10 @@
       "physical_control_status": "invalid: retained as diagnostic only, excluded from physical comparisons"
     },
     "blocked": {
-      "run_directory": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\blocked",
+      "run_directory": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\blocked",
       "status": "ready",
-      "records_file": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\blocked\\records.jsonl",
-      "summary_file": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\blocked\\summary.json",
+      "records_file": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\blocked\\records.jsonl",
+      "summary_file": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\blocked\\summary.json",
       "json_object_records_read": 83,
       "json_parse_errors": 0,
       "non_object_json_lines": 0,
@@ -1465,10 +1465,10 @@
       }
     },
     "static2": {
-      "run_directory": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\static2",
+      "run_directory": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\static2",
       "status": "ready",
-      "records_file": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\static2\\records.jsonl",
-      "summary_file": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\static2\\summary.json",
+      "records_file": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\static2\\records.jsonl",
+      "summary_file": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\static2\\summary.json",
       "json_object_records_read": 72,
       "json_parse_errors": 0,
       "non_object_json_lines": 0,
@@ -2183,10 +2183,10 @@
       }
     },
     "motion": {
-      "run_directory": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\motion",
+      "run_directory": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\motion",
       "status": "ready",
-      "records_file": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\motion\\records.jsonl",
-      "summary_file": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\motion\\summary.json",
+      "records_file": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\motion\\records.jsonl",
+      "summary_file": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\motion\\summary.json",
       "json_object_records_read": 79,
       "json_parse_errors": 0,
       "non_object_json_lines": 0,
@@ -2919,10 +2919,10 @@
       }
     },
     "static3": {
-      "run_directory": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\static3",
+      "run_directory": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\static3",
       "status": "ready",
-      "records_file": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\static3\\records.jsonl",
-      "summary_file": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\static3\\summary.json",
+      "records_file": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\static3\\records.jsonl",
+      "summary_file": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\static3\\summary.json",
       "json_object_records_read": 74,
       "json_parse_errors": 0,
       "non_object_json_lines": 0,
@@ -3634,10 +3634,10 @@
       }
     },
     "blocked5cm": {
-      "run_directory": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\blocked5cm",
+      "run_directory": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\blocked5cm",
       "status": "ready",
-      "records_file": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\blocked5cm\\records.jsonl",
-      "summary_file": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\blocked5cm\\summary.json",
+      "records_file": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\blocked5cm\\records.jsonl",
+      "summary_file": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\blocked5cm\\summary.json",
       "json_object_records_read": 73,
       "json_parse_errors": 0,
       "non_object_json_lines": 0,
@@ -4347,10 +4347,10 @@
       }
     },
     "recovery5cm": {
-      "run_directory": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\recovery5cm",
+      "run_directory": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\recovery5cm",
       "status": "ready",
-      "records_file": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\recovery5cm\\records.jsonl",
-      "summary_file": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\recovery5cm\\summary.json",
+      "records_file": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\recovery5cm\\records.jsonl",
+      "summary_file": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\recovery5cm\\summary.json",
       "json_object_records_read": 87,
       "json_parse_errors": 0,
       "non_object_json_lines": 0,
@@ -5076,8 +5076,8 @@
   },
   "csv_outputs": {
     "static1": {
-      "vectors_csv": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\vectors_static1.csv",
-      "timeseries_csv": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\timeseries_static1.csv",
+      "vectors_csv": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\vectors_static1.csv",
+      "timeseries_csv": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\timeseries_static1.csv",
       "selected_six_slots": [
         0,
         5,
@@ -5096,8 +5096,8 @@
       ]
     },
     "blocked": {
-      "vectors_csv": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\vectors_blocked.csv",
-      "timeseries_csv": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\timeseries_blocked.csv",
+      "vectors_csv": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\vectors_blocked.csv",
+      "timeseries_csv": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\timeseries_blocked.csv",
       "selected_six_slots": [
         0,
         5,
@@ -5116,8 +5116,8 @@
       ]
     },
     "static2": {
-      "vectors_csv": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\vectors_static2.csv",
-      "timeseries_csv": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\timeseries_static2.csv",
+      "vectors_csv": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\vectors_static2.csv",
+      "timeseries_csv": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\timeseries_static2.csv",
       "selected_six_slots": [
         0,
         5,
@@ -5136,8 +5136,8 @@
       ]
     },
     "motion": {
-      "vectors_csv": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\vectors_motion.csv",
-      "timeseries_csv": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\timeseries_motion.csv",
+      "vectors_csv": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\vectors_motion.csv",
+      "timeseries_csv": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\timeseries_motion.csv",
       "selected_six_slots": [
         0,
         5,
@@ -5156,8 +5156,8 @@
       ]
     },
     "static3": {
-      "vectors_csv": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\vectors_static3.csv",
-      "timeseries_csv": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\timeseries_static3.csv",
+      "vectors_csv": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\vectors_static3.csv",
+      "timeseries_csv": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\timeseries_static3.csv",
       "selected_six_slots": [
         0,
         5,
@@ -5176,8 +5176,8 @@
       ]
     },
     "blocked5cm": {
-      "vectors_csv": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\vectors_blocked5cm.csv",
-      "timeseries_csv": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\timeseries_blocked5cm.csv",
+      "vectors_csv": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\vectors_blocked5cm.csv",
+      "timeseries_csv": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\timeseries_blocked5cm.csv",
       "selected_six_slots": [
         0,
         5,
@@ -5196,8 +5196,8 @@
       ]
     },
     "recovery5cm": {
-      "vectors_csv": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\vectors_recovery5cm.csv",
-      "timeseries_csv": "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\timeseries_recovery5cm.csv",
+      "vectors_csv": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\vectors_recovery5cm.csv",
+      "timeseries_csv": "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\analysis\\timeseries_recovery5cm.csv",
       "selected_six_slots": [
         0,
         5,
@@ -6402,20 +6402,20 @@
     }
   },
   "figures": [
-    "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\01_rssi_vs_time.png",
-    "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\01_rssi_vs_time.svg",
-    "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\02_packet_mean_amplitude.png",
-    "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\02_packet_mean_amplitude.svg",
-    "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\03_six_slot_timeseries.png",
-    "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\03_six_slot_timeseries.svg",
-    "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\04_mean_response_by_rate.png",
-    "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\04_mean_response_by_rate.svg",
-    "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\04b_raw_mean_response.png",
-    "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\04b_raw_mean_response.svg",
-    "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\05_slot_time_variance.png",
-    "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\05_slot_time_variance.svg",
-    "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\06_valid_controls_variance.png",
-    "D:\\RockZheng\\大三上\\优本\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\06_valid_controls_variance.svg"
+    "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\01_rssi_vs_time.png",
+    "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\01_rssi_vs_time.svg",
+    "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\02_packet_mean_amplitude.png",
+    "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\02_packet_mean_amplitude.svg",
+    "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\03_six_slot_timeseries.png",
+    "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\03_six_slot_timeseries.svg",
+    "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\04_mean_response_by_rate.png",
+    "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\04_mean_response_by_rate.svg",
+    "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\04b_raw_mean_response.png",
+    "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\04b_raw_mean_response.svg",
+    "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\05_slot_time_variance.png",
+    "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\05_slot_time_variance.svg",
+    "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\06_valid_controls_variance.png",
+    "<本地工作区>\\工作记录\\3-CSI调研与实机验证\\ESP32测试\\结果\\c5_csi_physical_validation_20261015\\figures\\06_valid_controls_variance.svg"
   ],
   "interpretation_limits": [
     "All input formats and lengths are counted; only source-matched uplink Data, format=1, second=0, len=106, valid=1, rx_state=0, copied=len, correct nonempty hex, and known first_word_invalid are decoded.",
