@@ -46,3 +46,6 @@ Thumbs.db
 **/旧项目最终保护核对.json
 **/本项目容器状态.json
 **/ready
+
+# Local agent configuration; never publish
+/AGENTS.md
