@@ -105,9 +105,10 @@ FeitCSI已退出当前主方案，不再采购/部署；此前选择仅保留在
 - 静态10cm/5cm遮挡与恢复区分不足，完整可重复物理验收未建立；物理报告当时建议先固定线缆复测，再业务packet_id。
 - 当前lltf_bit_mode0为12bit，不能套普通8bit复数对；26复数槽、尾2byte及完整DC/载波映射限制见报告。不做绝对校准或VHT80覆盖宣称；Jetson网络/服务不改。
 
-## 2026-10-15后续阶段：UDP packet_id↔CSI实机准备与sanity
+## 2026-10-15后续阶段：UDP packet_id↔CSI实机传输测试
 
 - 用户决定在部分物理合理性结果后继续最小化数据传输验证。设备可用后已只读SSH检查Jetson并将v5 app写入C5；未改Jetson配置/服务/防火墙，未操作狗运动。
-- 探针每包48字节IPv4/UDP负载，包含run_id、packet_id、Jetson monotonic时间和CRC32；sender默认5包/s。Windows接收端统计收到的ID，ESP32-C5 sniffer-5准备记录Protected标志及未保护探针ID，分析器按FRAME metadata与CSI做关联。
-- 当前工作区、核对过hash的构建及C5 READY均为sniffer-5-packet-id。30.156秒静止sanity成功：34条目标Data FRAME/CSI、队列drop 0、Protected=1为34/34；该窗口没有发送UDP探针，不能作为探针负载可见性的结果。离线Python语法、20包loopback、合成FRAME→CSI匹配仍通过。
-- `wifi_csi_info_t`虽有payload/payload_len字段，但这不保证旁路未关联ESP可解密受保护帧。Protected位实测前不承诺packet_id可见；Protected=1时跳过payload，不改Jetson现有Wi-Fi/安全配置。详见[packet_id方案和待办](数据传输与CSI关联方案.md)。
+- 探针每包48字节IPv4/UDP负载，包含run_id、packet_id、Jetson monotonic时间和CRC32；sender默认5包/s。最终sender→Windows接收100/100，缺失/重复/无效均0。
+- 当前工作区、核对过hash的构建及板上READY均为sniffer-5-packet-id。最终60.204秒C5采集获得63条目标Data FRAME和63条有效目标Data CSI，drop=0；63条均Protected=1。timestamp/TA/FC/seq_ctrl元数据一对一匹配63/63，但FRAME/CSI均没有可见packet_id，因此业务ID↔CSI端到端关联尚未建立。
+- 已按现场问题更新分析器：通用FRAME↔CSI metadata匹配与含业务ID的FRAME↔CSI关联分开统计，避免把“加密后ID不可见”误解为两类记录无法配对。原始sender/receiver/UART/CSI证据保存在本地结果目录；公开副本仅含匿名汇总。
+- `wifi_csi_info_t`虽有payload/payload_len字段，但旁路未关联ESP不解密Protected帧。下一步需要设计用户批准的载荷可见性验证路径；本轮未切AP或改变Jetson Wi-Fi/安全设置。图像/LiDAR/狗运动仍后置。详见[packet_id方案与实测结果](数据传输与CSI关联方案.md)。

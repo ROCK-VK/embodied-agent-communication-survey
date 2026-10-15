@@ -1,6 +1,6 @@
 # 小型UDP packet_id与CSI关联阶段
 
-更新：2026-10-15。此文记录小UDP packet_id↔CSI阶段方案与当前边界。设备恢复后已刷入sniffer-5并完成30秒静止sanity；业务UDP实机传输尚未开始。
+更新：2026-10-15。此文记录小UDP packet_id↔CSI阶段方案与当前边界。sniffer-5已烧录并通过sanity；Jetson→Windows UDP收发100/100成功、FRAME↔CSI metadata匹配63/63，但Protected=1导致业务packet_id↔CSI尚未建立。
 
 ## 当前已知起点
 
@@ -33,7 +33,7 @@ Jetson sender只需Python 3.8标准库。Windows接收端也只用标准库。�
 - sniffer-5保留v4的CSI原始采集/目标过滤/统计行为，并额外记录Frame Control的Protected位。
 - 仅对未加密、非分片IPv4/UDP Data帧，解析LLC/SNAP、IPv4、UDP和48字节探针；校验magic、版本、长度、保留位、测试数据模式及CRC32。只输出`app_run_id`、`app_packet_id`、发送monotonic时间和状态码，不输出业务payload。
 - `app_probe_status`：0=未扫描；1=Protected位为1并跳过；2=不是可识别探针；3=魔数命中但格式/CRC无效；4=完整验证通过。
-- FRAME和CSI回调分别尝试读取packet_id。若CSI回调未直接取到ID，但FRAME取到ID，则分析器用timestamp、TA、FC和seq_ctrl将FRAME与CSI合并。多帧/重传/聚合造成的重复仍按观测逐条保留，不假设一包UDP恒对应一个CSI。
+- FRAME和CSI回调分别尝试读取packet_id。若CSI回调未直接取到ID，但FRAME取到ID，则分析器用timestamp、TA、FC和seq_ctrl将ID与CSI合并；另行汇报所有目标FRAME↔CSI元数据键匹配数及一对一/歧义数，不把“Protected后没有ID”误报成“FRAME和CSI没有配对”。多帧/重传/聚合造成的重复仍按观测逐条保留，不假设一包UDP恒对应一个CSI。
 - 当前物理层CSI时间戳不是Jetson系统时钟。sender时间只用于标识与后续分析；接收端主机时间与Jetson monotonic时钟不直接相减。
 
 ## 实机顺序（设备可用后）
@@ -75,10 +75,18 @@ py -3 .\analyze_packet_id.py --sender .\results\sender_<RUN>.jsonl --receiver .\
 
 部署到Jetson前只复制`udp_probe_sender.py`与`udp_probe_protocol.py`到临时目录；无需pip、sudo或安装包。当前不执行复制/SSH，因为Jetson关机。
 
-## 离线工具验证与未完成项
+## 2026-10-15实机初测结果
+
+- C5运行已校验SHA256的`sniffer-5-packet-id`；保持NULL旁路、channel 149。最终60.204秒采集获得63条目标Data FRAME及63条有效目标Data CSI；CSI/FRAME队列drop=0，CSI empty/truncated=0，STOP/FINAL正常。两条Wi-Fi驱动文本行被计为UART JSON解析错误。
+- Jetson sender报告发送100个48字节UDP探针；Windows receiver使用当前Public配置下已有Python UDP入站允许规则对应的解释器，收到100/100个唯一ID，缺失/重复/无效均0。未新增/修改防火墙规则，也未修改Jetson网络、路由、服务或Wi-Fi安全设置。
+- 最终采集的63/63目标Data FRAME/CSI均为Protected=1。metadata分析器报告63个共享timestamp/TA/FC/seq_ctrl键、63个一对一匹配；FRAME可见packet_id=0，CSI直接ID=0，ID元数据join=0。因此“UDP发送→接收”和“目标FRAME↔CSI”均成立，但当前旁路节点无法从受保护帧读取业务packet_id，端到端`packet_id↔CSI`未建立。
+- 早期几轮没有形成发送与接收器同时运行的完整窗口：接收器先达到空闲超时退出；另有一次运行解释器路径与已有入站规则不一致。最终使用已有允许规则对应的Python解释器、120秒空闲超时完成100/100接收；因此早期0接收不能用来断言无线网络阻断，也没有改变防火墙策略。
+- 原始sender/receiver/UART/CSI记录及每次失败尝试保留在本地`ESP32测试/结果/c5_udp_packet_id_20261015_165900/`；公开版本只保留匿名汇总，不含原始无线/串口记录或现场标识。
+
+## 验证与未完成项
 
 - 已完成：Python语法检查；loopback UDP 20包发送/接收校验（20/20、缺失/重复/无效均0）；C5 sniffer纯构建和分区容量检查。Protected计数即使目标frame header长度不足也单独保留。
 - 已完成：ESP v5 app烧录/回读校验、启动READY与30秒sanity。Sanity普通Jetson上行Data CSI为34/34 Protected=1，但该窗口无探针；这只提示现有Wi-Fi上行帧可能加密，不代替探针实测。
-- 未完成：Jetson实际发送、Windows实际接收、探针Protected位实测及FRAME/CSI/packet_id业务关联。源码/构建与板上版本已通过本轮烧录/READY核对；未来重刷后仍需重新核对。
+- 已完成：Jetson实际发送、Windows实际接收、探针Protected位实测及通用FRAME/CSI元数据配对；未完成：业务packet_id↔CSI精确关联。源码/构建与板上版本已通过本轮烧录/READY核对；未来重刷后仍需重新核对。
 - 捕获器在打开COM串口后会沿用已验证采集器的RTS脉冲复位C5，再等READY；首轮漏复位导致错过一次性READY，未开始采样。失败输出保存在本轮结果目录。
 - 已知限制：协议仅解析IPv4/UDP与小型未分片探针；受保护帧不会读取payload；无线传输无ACK，CSI数量与UDP包数无需相等。
