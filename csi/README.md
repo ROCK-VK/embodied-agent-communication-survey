@@ -26,3 +26,7 @@ ESP32-C5 / Pi4B Nexmon CSI / AX210 PicoScenes；Pi待实机，AX210仅x86原生L
 不宣称UDP=Wi-Fi帧=CSI；RF5745MHz、信道带宽与CSI条/s分别报告。Jetson网络/eth0/ROS/Mihomo/服务保持现状，本轮只有授权普通用户ping，已停止；新增SSH和COM均释放。
 
 公开本人源码/匿名统计/安全向量/图和版本说明；密码、sdkconfig/固件、原Flash、敏感原始串口SSH日志与下载依赖不上传。
+
+## 2026-10-16实验准备
+
+先按[修订计划](CSI下一阶段实验计划单_修订版_2026-10-15.md)执行只读门禁，参考[VHT20能力与SSH风险核验](Jetson_VHT20可行性与SSH风险核验_2026-10-15.md)。当前仅离线源码评估：同版本驱动有运行时TX限宽候选，本机节点/生效/SSH保持待实查。首次不盲重载驱动、不改AP或eth0；20MHz上限不等于强制VHT，亦不解决Protected业务ID不可见。

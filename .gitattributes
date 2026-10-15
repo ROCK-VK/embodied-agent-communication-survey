@@ -6,3 +6,5 @@
 # Preserve measured artifact bytes and source provenance hashes
 /归档/simulation/** -text
 /归档/simulation/**/*.md text eol=lf
+
+/csi/Jetson只读工具/*.sh text eol=lf
