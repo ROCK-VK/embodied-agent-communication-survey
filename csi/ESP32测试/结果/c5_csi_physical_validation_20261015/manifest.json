@@ -1,0 +1,127 @@
+{
+  "status": "seven user-confirmed runs completed; RunA later flagged invalid static control",
+  "firmware_version": "sniffer-4-physical",
+  "idf_version": "5.5.5",
+  "esp_csi_reference_commit": "8633d67152db2808f141cc1595970aa9cf406045",
+  "hardware": "QSZNTEC ESP32-C5 rev1.0 Flash4MB external antenna",
+  "channel": 149,
+  "rf_frequency_mhz": 5745,
+  "esp_receive_bandwidth": "unknown in NULL mode; never infer VHT80 from Jetson link",
+  "lltf_bit_mode": 0,
+  "lltf_precision_bits": 12,
+  "acquire_csi_force_lltf": 0,
+  "uart": "COM10/921600",
+  "ping": {
+    "interval_s": 0.2,
+    "payload_bytes": 256,
+    "gateway": "read from actual wlan0 default route",
+    "sanity_requests_sent": 188,
+    "sanity_replies_received": 188,
+    "state": "stopped",
+    "formal_requests_sent": 3508,
+    "formal_replies_received": 3508
+  },
+  "paths": {
+    "source": {
+      "sha256": "9bd72550eff450611305e99e94f702e1872cc715d857390391342a9ac70a5556",
+      "name": "sniffer.c"
+    },
+    "elf": {
+      "sha256": "435ed7c3d9e123e96f4b5b945fa93e682fc9ab96f42ff4e516a8c431afa5d18a",
+      "name": "sniffer_jetson.elf"
+    },
+    "app": {
+      "sha256": "69bde759b225cdcff5b61763701d47cf8dd9779623d230dd76a3ae83c864573f",
+      "name": "sniffer_jetson.bin"
+    },
+    "capture": {
+      "sha256": "2ba4334e94e5ede356cd3655032f16b6c61671ea2cc3a450e6d5aa97cc9f5ec8",
+      "name": "capture_physical.py"
+    },
+    "analysis": {
+      "name": "analyze_physical.py",
+      "sha256": "0afb502073b319fda149b7524ff403ce6b362b613c3f9402063645cd759c5af1"
+    }
+  },
+  "constraints": "Jetson network/services unchanged. No sensor/sample_id/AP Plan B. Physical A–E wait user confirmation.",
+  "physical_verdict": "dynamic response and local recovery supported; reproducible static blockage not established",
+  "run_order": [
+    "static1",
+    "blocked",
+    "static2",
+    "motion",
+    "static3",
+    "blocked5cm",
+    "recovery5cm"
+  ],
+  "invalid_control": [
+    "static1"
+  ],
+  "cleanup": {
+    "ping_stopped": true,
+    "formal_ping_transmitted": 3508,
+    "formal_ping_received": 3508,
+    "formal_ping_duration_ms": 703305,
+    "new_ssh_session_exited": true,
+    "COM10_reopen_close_verified": true,
+    "esp_csi_promiscuous_stopped": true,
+    "jetson_network_services_changed": false
+  },
+  "analysis_environment": {
+    "python": "existing Anaconda Python",
+    "numpy": "2.3.5",
+    "matplotlib": "3.10.6",
+    "no_packages_installed": true
+  },
+  "input_integrity": {
+    "static1": {
+      "records.jsonl": "c9f95bf78599c24db32a3f8c166e6676a9a9eeebede9e54581011d36bdfec9d0",
+      "frames.jsonl": "2961d458aecc938fde3e7270bc909d5c44c159f144a08cec56a9dc207cfedb6d",
+      "summary.json": "874b0c07882cd7a62f1a2633e5abeb38a8af51f475f40760cbe8ab1bd98f0ec1",
+      "run_metadata.json": "9feae3132a8dd03e624cb65ae38536d0d0a56102ab2b38c3ba0f8ae70f001c6a",
+      "serial_raw.log": "a8427b6b93fe20c4759ddfeab147d37db000ec4eba3c104acbbaefdea5614257"
+    },
+    "blocked": {
+      "records.jsonl": "7c2d66081626790ec4bee890af5d8b20bf8be859c9e8a017f8f3058c1a5a1395",
+      "frames.jsonl": "33bea22dfd4194e30711196c5f4a0efc683ae5c1bd027c2300e000d341fbf2b1",
+      "summary.json": "3611054fd0a6673f19e07d9fc6371aca4ae5015857a799970b10ae69f86e16aa",
+      "run_metadata.json": "fe8dd9ec310380db2f529ca89f5ddb1b1dbe4f97bb037999980229727d4801c8",
+      "serial_raw.log": "656ecccce6e9730012d7eeff8963ea01420cdbd3d8aa9bb3f59b2663dea613a2"
+    },
+    "static2": {
+      "records.jsonl": "bd8f9e0c7952e7e5c269f9636207b9f9bb54dd22a281c9236b260b9634d5f2e4",
+      "frames.jsonl": "285305f6f62b076206c4814852725b025123f6a886bf2fda6fe9d25b7b326d03",
+      "summary.json": "425bdb6fa3c33d882e73492b592e78ef12099a2a56929cc5d9b7b24a441fb284",
+      "run_metadata.json": "328e1c1a612160a2540ed560ddb0fa609d11330f3160e73927955bce109e5494",
+      "serial_raw.log": "9fb34fb5a39a28862cb6f52275f732114a1de9e7a5543d50a56b6a89d1a16a1a"
+    },
+    "motion": {
+      "records.jsonl": "33754ad88c025c21f07a14de1115179f1ba54f11c4cd723efffcf17ffac3a828",
+      "frames.jsonl": "c0c397f392fbf483deb225720a814d670166f9c5fef01e2667b2705f257ddffb",
+      "summary.json": "7d8f257e77ea47e36af77fc83378948f3a55450497e42b395a88a2037c4b375d",
+      "run_metadata.json": "e4d74e8a481f9dc6ad3ddb6fb1022e8a07d64b50a2c2f07b242f0d7ca926ecb0",
+      "serial_raw.log": "5c30ed565d8a1ddb2fea49dd20421bb8235c3b060f4a8649ec194244ef6162d8"
+    },
+    "static3": {
+      "records.jsonl": "5f8c52b3dd91db1bce554943531bf0af5d9192da70e70b18bf602e4f34e22618",
+      "frames.jsonl": "409522e1b352f8515f9f6bfabd5158144290f985943ef3ee49108c5e75189d46",
+      "summary.json": "a5568dfb7ad86ccdb192d1eca26d14b6bcebcb769510af4870428e5585b9a20d",
+      "run_metadata.json": "e660593d7e1cbdc1915f479e7308a56be25120ef4256019a9f4ffd385780d51e",
+      "serial_raw.log": "417b842916ec1d4b826324983af41982cf1ab796f06016fd9ccf47975d5352aa"
+    },
+    "blocked5cm": {
+      "records.jsonl": "fb4778997b89633379fadf5f24e50463f6f5df64ccc4a1565543208a7328a772",
+      "frames.jsonl": "356cbf9f016f529c97fb075bee2daea7e2e885c0b3af372824ad4f10b2681aca",
+      "summary.json": "d07578c24ca658c374d85cf3ebf6e85c0f5ef678cfca64110e92b2cbd4540773",
+      "run_metadata.json": "4e44210160dd8ca560a77e3e81ac353319433ac9ca0aff335582eef2a56cf217",
+      "serial_raw.log": "6ccb85fc3d867156df5c25cad0eb383d107191cdc0f268904179cb0b3a5d9a25"
+    },
+    "recovery5cm": {
+      "records.jsonl": "11a4c59dea5f701382d1d433290140caf7f597fceae97611da84e0df26ddb725",
+      "frames.jsonl": "cd3b11a37f89ad9506f965664c23b3c9502fe60fe0779166f651a6f9eeb04b79",
+      "summary.json": "05920cdf6cb22ef910506248651e7381400bddf3b14298d72efb0c70fe48789e",
+      "run_metadata.json": "680a349a1de107e4bf92869636229590fefedb19103dccbc626fd6ec29ada33e",
+      "serial_raw.log": "50a2ef8efbccf3f3d2b5cc8dec13eda7ce6d0ddbefcd56d663e4526563dd0be5"
+    }
+  }
+}

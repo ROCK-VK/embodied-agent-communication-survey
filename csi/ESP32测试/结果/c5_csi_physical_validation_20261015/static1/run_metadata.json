@@ -1,0 +1,12 @@
+{
+  "user_confirmed_state": "Static-1: hand away, devices fixed",
+  "requested_seconds": 60,
+  "ping_interval_s": 0.2,
+  "ping_payload_bytes": 256,
+  "jetson_network_modified": false,
+  "firmware": "sniffer-4-physical",
+  "quality": "invalid static control",
+  "exclude_from_physical_comparisons": true,
+  "reason": "User later confirmed accidentally touching cable moved the ESP during Run A; source/SDK checks remain valid, static-state assumption fails",
+  "disclosure_timing": "after completion of all physical runs; data retained without deletion"
+}

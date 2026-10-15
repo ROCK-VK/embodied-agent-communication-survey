@@ -196,7 +196,7 @@ CSI len分布/有效无效未知/串口丢失：待填
 下一步：待填
 ```
 
-今天最优先：**接UART → 确认COM/芯片/Flash → 固定组合纯build → 单板路由器基线60秒/5分钟**。完成基线后再准备监听版本，不把所有阶段挤在第一次烧录里；不接真实相机/雷达/位姿大流量。
+2026-10-14首次准备时的优先顺序（现已完成，不重复）：**接UART → 确认COM/芯片/Flash → 固定组合纯build → 单板路由器基线60秒/5分钟**。完成基线后再准备监听版本，不把所有阶段挤在第一次烧录里；不接真实相机/雷达/位姿大流量。
 
 ## 8. 证据分级与尚未知
 
@@ -222,5 +222,12 @@ CSI len分布/有效无效未知/串口丢失：待填
 - [独立结果报告](ESP32测试/结果/c5_sniffer_jetson_20261014_online_v3/ESP32-C5_被动监听Jetson_PoC结果.md)：sniffer-3/IDF5.5.5，WIFI_MODE_NULL/149，无AP关联或ESP IP流量，不复用router BSSID过滤，不重复实验1。
 - 在线300.203秒目标FRAME43915（Data470），CSI总197959/目标43915，SDK有效DataCSI470；落盘有效上行DataCSI311，241组与FRAME同timestamp/TA/FC/seq，判D。
 - 仅legacy OFDM格式1/len106，不是VHT80 CSI；rx_bw未知。目标密集CTRL导致UART queue drop（FRAME目标26263/CSI目标18709），host FRAME JSON错误1，callback与导出计数分列，不声称完整覆盖/业务关联。
-- 旧v2零结果因用户关机、目标未确认全程在线而无效；用户开机后重新SSH/MAC/信道确认再做v3。Agent未修改Jetson网络/ROS/服务，结束SSH仍正常；STOP后ESP采集停止、COM10释放，设备当前sniffer-3，不是router固件。
-- 无需因本轮进入AP Plan B或立即做20MHz失败对照；现场无对照设备，将来覆盖/性能研究再安排。下一步优先输出过滤/队列/二进制优化，sample_id仍未做。
+- 旧v2零结果因用户关机、目标未确认全程在线而无效；用户开机后重新SSH/MAC/信道确认再做v3。Agent未修改Jetson网络/ROS/服务，结束SSH仍正常；STOP后ESP采集停止、COM10释放，该次结束时设备为sniffer-3；当前已更新v4，见下方最新状态。
+- 无需因本轮进入AP Plan B或立即做20MHz失败对照；现场无对照设备，将来覆盖/性能研究再安排。当时待办为输出优化；v4 Data过滤已完成且队列drop0，最新优先任务见下方，sample_id仍未做。
+
+## 2026-10-15当前状态：物理合理性局部支持
+
+- [物理验证结果](ESP32测试/结果/c5_csi_physical_validation_20261015/CSI物理合理性验证报告.md)：五组加5cm补充共535有效DataCSI，sniffer-4-physical仅Data导出、queue drop0，已STOP；原v3源码保留快照，不与历史结果混同。
+- 用户确认RunA碰线使ESP移动，失效静止对照保留，物理分析排除；C/D/E运动组归一化方差为前后静止3.43/6.13倍，停止后降低。
+- 静态10cm/5cm遮挡与恢复区分不足，完整可重复物理验收未建立；下一步先固定线缆复测有效物理对照，再业务packet_id，不因来源PoC通过而跳过此门槛。
+- 当前lltf_bit_mode0为12bit，不能套普通8bit复数对；26复数槽、尾2byte及完整DC/载波映射限制见报告。不做绝对校准或VHT80覆盖宣称；Jetson网络/服务不改。

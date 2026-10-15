@@ -1,0 +1,9 @@
+{
+  "user_confirmed_state": "Supplemental: open palm approx5cm static without touching or enclosing antenna",
+  "requested_seconds": 60,
+  "ping_interval_s": 0.2,
+  "ping_payload_bytes": 256,
+  "jetson_network_modified": false,
+  "firmware": "sniffer-4-physical",
+  "baseline_reference": "static3; no new baseline synthesized"
+}

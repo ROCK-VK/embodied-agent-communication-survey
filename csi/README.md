@@ -1,38 +1,27 @@
-# CSI 调研与实机验证
+# CSI调研与实机验证
 
-更新：2026-10-14。本目录是本地第三阶段工作的公开副本；现场SSID、MAC与私网地址已匿名化，占位符不能原样用来连接设备。完整原始证据及持久化项目日志在本地保留。
+更新：2026-10-15。本目录为本地第三阶段公开白名单副本；现场MAC/SSID/私网地址匿名，占位符需替换，原始数据及完整项目日志留本地。
 
-## 当前路线和结果
+## 当前结果
 
-- ESP32-C5：现有1块QSZNTEC标识开发板，实查revision v1.0/Flash4MB、CH343/COM10。固定IDF5.5.5+esp-csi8633d67152db2808f141cc1595970aa9cf406045已完成官方router基线。
-- 实测：5GHz/149，C5协商BW20；300.03秒含约15秒启动联网，28861条AP→ESP CSI，首末CSI跨度285.141275秒，观察记录率101.213条/秒。解析/数组长度错误和本地seq中断均0；原版未导出channel-estimate valid，有效率尚未知。
-- Pi4B Nexmon CSI：保留第二条正式路线，系统/firmware门禁先于部署，尚未在本项目复现。
-- AX210 PicoScenes：x86原生Linux升级路线；不在Jetson ARM、Pi ARM或WSL部署。FeitCSI退出主方案，Atheros保持历史参考/备用。
-- 后续：单板router→独立promiscuous探索→ESP AP备选（先PC，未来Jetson）→sample_id关联→传感器。Jetson网络/驱动/服务保持现状；VHT80仍为高可信推断。
-
-最新SSH只读复核（2026-10-14 15:48）：认证及hostname命令成功，新增会话已退出；设备配置保持现状。
+- Router baseline已通过：5GHz149/C5BW20，28861条AP→ESP CSI；不重复。
+- 被动来源PoC已通过：Jetson上行legacy OFDM来源/方向与独立帧metadata确认；未改Jetson网络，不是VHT80或全PHY覆盖。
+- 本轮物理验证七组535条有效DataCSI，约1.11–1.45条/s，Data优先UART队列drop0；RunA碰线导致设备移动，失效对照保留，物理比较改用有效静止组。
+- 运动组归一化幅度方差为相邻静止组3.43/6.13倍，停止后降低，支持动态响应/局部恢复；10cm/5cm静态遮挡区分与多轮重复性不足，完整验收尚未建立。
+- 当前工作区/板为sniffer-4-physical且STOP，旧v3快照保留。mode0是12bit，26复数槽分析；尾2byte/完整载波DC映射未明，不能套常规8bit53点，不作绝对校准。
 
 ## 阅读入口
 
-- [ESP32-C5单板测试方案](ESP32_CSI测试方案.md)
-- [Pi4B Nexmon测试方案](树莓派4B_Nexmon_CSI测试方案.md)
-- [当前三路线与PoC边界](CSI当前路线与PoC验证.md)
-- [Jetson只读补查](Jetson只读补查_2026-10-13.md)、[网络和扩展接口报告](Jetson网络与扩展接口只读确认_2026-10-13.md)
-- [C5 router实测报告](ESP32测试/结果/c5_router_20261014/ESP32-C5_路由器CSI基线结果.md)
-- [串口采集脚本](ESP32测试/capture_router.py)、[离线统计脚本](ESP32测试/analyze_router.py)
-- [采集统计](ESP32测试/结果/c5_router_20261014/capture_summary.json)、[离线统计](ESP32测试/结果/c5_router_20261014/analysis_summary.json)、[版本/产物哈希](ESP32测试/结果/c5_router_20261014/manifest.json)
-- [公开更新记录](更新记录.md)、[此前模拟成果](../归档/simulation/README.md)
+- [物理验证报告](ESP32测试/结果/c5_csi_physical_validation_20261015/CSI物理合理性验证报告.md)、[汇总](ESP32测试/结果/c5_csi_physical_validation_20261015/summary.json)、[版本](ESP32测试/结果/c5_csi_physical_validation_20261015/manifest.json)
+- [ESP方案](ESP32_CSI测试方案.md)、[Pi方案](树莓派4B_Nexmon_CSI测试方案.md)、[三路线](CSI当前路线与PoC验证.md)
+- [Router结果](ESP32测试/结果/c5_router_20261014/ESP32-C5_路由器CSI基线结果.md)、[被动来源结果](ESP32测试/结果/c5_sniffer_jetson_20261014_online_v3/ESP32-C5_被动监听Jetson_PoC结果.md)
+- [当前固件](ESP32测试/sniffer_jetson/main/sniffer.c)、[物理采集](ESP32测试/sniffer_jetson/capture_physical.py)、[离线分析](ESP32测试/sniffer_jetson/analyze_physical.py)、[旧v3快照](ESP32测试/sniffer_jetson/版本源码/sniffer-3.c)
+- [Jetson只读报告](Jetson只读补查_2026-10-13.md)、[接口报告](Jetson网络与扩展接口只读确认_2026-10-13.md)、[更新记录](更新记录.md)、[历史归档](../归档/README.md)
 
-## 复现边界
+## 路线与下一步
 
-源码使用Espressif固定commit的csi_recv_router，不另发布第三方源码副本。设置自己的SSID/密码后先纯build再flash；Windows优先使用纯英文构建路径，原实验中文路径的失败/修复过程见报告。公开采集脚本仅依赖pyserial，运行会复位测试ESP，默认COM10/921600；300秒后释放端口，固件仍运行。
+ESP32-C5 / Pi4B Nexmon CSI / AX210 PicoScenes；Pi待实机，AX210仅x86原生Linux。Atheros历史备用，FeitCSI退出。先固定ESP与线缆、复测有效物理对照，再packet_id、最后传感器与位姿；不自动进入下一阶段或ESP AP Plan B。
 
-本仓库不包含sdkconfig、带Wi-Fi凭据的固件、原Flash备份、原始串口/SSH输出、安装器或源码ZIP。公开统计不能替代原始帧复核，也不宣称UDP=Wi-Fi帧=CSI、Jetson监听已成功或所有记录物理有效。
+不宣称UDP=Wi-Fi帧=CSI；RF5745MHz、信道带宽与CSI条/s分别报告。Jetson网络/eth0/ROS/Mihomo/服务保持现状，本轮只有授权普通用户ping，已停止；新增SSH和COM均释放。
 
-用户已持续授权：每次完成有效修改或实验后，同步本地日志、验证公开白名单副本、commit/push并核对远端；推送失败需明确报告，不强推覆盖。
-
-## 实验2最新结果
-
-[被动监听结果D](ESP32测试/结果/c5_sniffer_jetson_20261014_online_v3/ESP32-C5_被动监听Jetson_PoC结果.md)：在线300秒目标FRAME43915（Data470）、CSI目标43915；落盘有效上行DataCSI311，241组同帧元数据确认。仅legacy OFDM，不是VHT80 CSI。UART queue drop与1条JSON错误已量化，完整覆盖未验证；Agent未改Jetson，当前不进入AP Plan B。
-
-[独立固件与核验](ESP32测试/sniffer_jetson/联网核验与实现说明.md)、[采集脚本](ESP32测试/sniffer_jetson/capture_sniffer.py)。初次目标关机的零结果不作能力判断；本轮结束ESP CSI/prom已STOP，COM已释放。
+公开本人源码/匿名统计/安全向量/图和版本说明；密码、sdkconfig/固件、原Flash、敏感原始串口SSH日志与下载依赖不上传。

@@ -1,0 +1,8 @@
+{
+  "user_confirmed_state": "Hand-Motion: open palm10-30cm slowly moving continuously, no contact",
+  "requested_seconds": 60,
+  "ping_interval_s": 0.2,
+  "ping_payload_bytes": 256,
+  "jetson_network_modified": false,
+  "firmware": "sniffer-4-physical"
+}

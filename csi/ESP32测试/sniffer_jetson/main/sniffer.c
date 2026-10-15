@@ -68,16 +68,13 @@ static void prom_cb(void *buf, wifi_promiscuous_pkt_type_t kind) {
     if (!parse_header(&e, p->payload, p->rx_ctrl.dump_len)) return;
     atomic_fetch_add(&prom_parsed_ta, 1);
     e.target = match(e.ta);
-    if (!e.target) {
-        if ((atomic_load(&prom_total)&63)!=1) return;
-        if (xQueueSend(queue,&e,0)!=pdTRUE) atomic_fetch_add(&frame_drop,1);
-        return;
-    }
+    if (!e.target) return; // Count all callbacks; no background UART export.
     atomic_fetch_add(&prom_target, 1);
     unsigned type = (e.fc >> 2) & 3;
     if (type == 2) atomic_fetch_add(&prom_target_data, 1);
     if (type == 0) atomic_fetch_add(&prom_target_mgmt, 1);
     if (type == 1) atomic_fetch_add(&prom_target_ctrl, 1);
+    if (type != 2) return; // Management/control counted above, never queued.
     if (xQueueSend(queue, &e, 0) != pdTRUE) { atomic_fetch_add(&frame_drop, 1); atomic_fetch_add(&frame_target_drop,1); }
 }
 static void csi_cb(void *ctx, wifi_csi_info_t *p) {
@@ -102,6 +99,8 @@ static void csi_cb(void *ctx, wifi_csi_info_t *p) {
         }
     }
     if (!p->buf || !p->len) atomic_fetch_add(&csi_empty, 1);
+    // Preserve all counts above. Queue only source/header-confirmed valid Data CSI.
+    if (!target || !e.ta_present || !match(e.ta) || ((e.fc >> 2) & 3) != 2 || !valid) return;
     e.len = p->len;
     if (p->buf) {
         e.copied = p->len > CSI_CAP ? CSI_CAP : p->len;
@@ -109,8 +108,7 @@ static void csi_cb(void *ctx, wifi_csi_info_t *p) {
         // Raw SDK bytes, no gain compensation or I/Q reinterpretation.
         memcpy(e.data, p->buf, e.copied);
     }
-    // All callback counts are retained; only 1/64 non-target records are exported.
-    if (!target && (atomic_load(&csi_total) & 63) != 1) return;
+    // Control/background never enter the output queue.
     if (xQueueSend(queue, &e, 0) != pdTRUE) {
         atomic_fetch_add(&csi_drop, 1);
         if (target) atomic_fetch_add(&csi_target_drop, 1);
@@ -148,7 +146,7 @@ void app_main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0, 2048, 0, 0, NULL, 0));
     esp_vfs_dev_uart_use_driver(UART_NUM_0);
-    printf("{\"event\":\"READY\",\"version\":\"sniffer-3\",\"max_csi_bytes\":%d}\n",CSI_CAP);
+    printf("{\"event\":\"READY\",\"version\":\"sniffer-4-physical\",\"max_csi_bytes\":%d}\n",CSI_CAP);
     char line[128]; unsigned ch,m[6];
     for (;;) {
         if (fgets(line,sizeof(line),stdin) && sscanf(line,"CFG,%u,%x:%x:%x:%x:%x:%x",&ch,&m[0],&m[1],&m[2],&m[3],&m[4],&m[5])==7 && ch>0 && ch<200) {

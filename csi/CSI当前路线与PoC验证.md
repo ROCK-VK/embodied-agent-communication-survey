@@ -97,3 +97,10 @@ FeitCSI已退出当前主方案，不再采购/部署；此前选择仅保留在
 
 - 独立sniffer-3/NULL/149，300秒目标FRAME43915（Data470）/CSI目标43915；导出311条有效上行DataCSI、241组同帧元数据确认，结果D。见[结果报告](ESP32测试/结果/c5_sniffer_jetson_20261014_online_v3/ESP32-C5_被动监听Jetson_PoC结果.md)。
 - 有效范围为legacy OFDM，不是VHT80 CSI；UART queue drop已量化，完整帧覆盖/吞吐未验证。Agent未改Jetson配置；初次关机零结果无效，开机在线后重新观察成功。当前无需AP Plan B，不做sample_id/传感器，优先改善导出。
+
+## 2026-10-15当前状态：物理合理性局部支持
+
+- [物理验证结果](ESP32测试/结果/c5_csi_physical_validation_20261015/CSI物理合理性验证报告.md)：五组加5cm补充共535有效DataCSI，sniffer-4-physical仅Data导出、queue drop0，已STOP；原v3源码保留快照，不与历史结果混同。
+- 用户确认RunA碰线使ESP移动，失效静止对照保留，物理分析排除；C/D/E运动组归一化方差为前后静止3.43/6.13倍，停止后降低。
+- 静态10cm/5cm遮挡与恢复区分不足，完整可重复物理验收未建立；下一步先固定线缆复测有效物理对照，再业务packet_id，不因来源PoC通过而跳过此门槛。
+- 当前lltf_bit_mode0为12bit，不能套普通8bit复数对；26复数槽、尾2byte及完整DC/载波映射限制见报告。不做绝对校准或VHT80覆盖宣称；Jetson网络/服务不改。
