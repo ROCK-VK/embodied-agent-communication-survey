@@ -1,12 +1,12 @@
 # 小型UDP packet_id与CSI关联阶段
 
-更新：2026-10-15。此文记录离线准备方案与当前边界；狗/Jetson现为关机，本阶段尚无UDP实机结果，也未烧录sniffer-5。
+更新：2026-10-15。此文记录小UDP packet_id↔CSI阶段方案与当前边界。设备恢复后已刷入sniffer-5并完成30秒静止sanity；业务UDP实机传输尚未开始。
 
 ## 当前已知起点
 
 - 物理CSI验证为部分通过：Jetson上行Data CSI来源与SDK有效字段成立；手掌运动时归一化幅度方差比邻近静止高3.43倍/6.13倍，停止后局部回落。Run A因碰线导致ESP移动而无效；10cm/5cm静态遮挡重复性不足。535条有效Data CSI，UART queue drop=0。完整证据见本地`ESP32测试/结果/c5_csi_physical_validation_20261015/`。
-- C5板上已停止运行v4；工作区源码/build已升级到`sniffer-5-packet-id`，纯构建成功，bin=0xdb9a0（app分区0x100000，14%余量），未烧录。新捕获脚本会拒绝READY版本不匹配的板卡。
-- Jetson通过现有Wi-Fi凭据接入，而C5为WIFI_MODE_NULL未关联旁路监听器；目标数据帧Protected位尚未在本阶段实测。若Protected位为1，v5不会尝试解密或扫描UDP载荷，因此不能预先保证能读到`packet_id`。先实测标志位，再判断能否在当前网络形成精确业务ID关联。
+- 工作区/build的`sniffer-5-packet-id` bin=0xdb9a0（app分区0x100000，14%余量）；已校验SHA256后通过COM10/esptool4.12.0只写app区0x10000，回读Hash verified，bootloader与分区表未重写。30秒静止sanity收到匹配READY并STOP/FINAL；具体计数见项目当前状态与执行记录。新捕获脚本会拒绝READY版本不匹配的板卡。
+- Jetson通过现有Wi-Fi接入，而C5为WIFI_MODE_NULL未关联旁路监听器。30秒sanity中普通Jetson Data CSI的Protected位为34/34；尚未发送探针，探针帧自己的Protected结果待测。若探针Protected位为1，v5不会尝试解密或扫描UDP载荷，因此不能保证能读到`packet_id`。
 
 ## 探针数据格式
 
@@ -78,5 +78,7 @@ py -3 .\analyze_packet_id.py --sender .\results\sender_<RUN>.jsonl --receiver .\
 ## 离线工具验证与未完成项
 
 - 已完成：Python语法检查；loopback UDP 20包发送/接收校验（20/20、缺失/重复/无效均0）；C5 sniffer纯构建和分区容量检查。Protected计数即使目标frame header长度不足也单独保留。
-- 未完成：ESP烧录/启动、30秒sanity、Jetson实际发送、Windows实际接收、Protected位实测、FRAME/CSI/packet_id关联。源码构建成功不代表板上版本已同步。
+- 已完成：ESP v5 app烧录/回读校验、启动READY与30秒sanity。Sanity普通Jetson上行Data CSI为34/34 Protected=1，但该窗口无探针；这只提示现有Wi-Fi上行帧可能加密，不代替探针实测。
+- 未完成：Jetson实际发送、Windows实际接收、探针Protected位实测及FRAME/CSI/packet_id业务关联。源码/构建与板上版本已通过本轮烧录/READY核对；未来重刷后仍需重新核对。
+- 捕获器在打开COM串口后会沿用已验证采集器的RTS脉冲复位C5，再等READY；首轮漏复位导致错过一次性READY，未开始采样。失败输出保存在本轮结果目录。
 - 已知限制：协议仅解析IPv4/UDP与小型未分片探针；受保护帧不会读取payload；无线传输无ACK，CSI数量与UDP包数无需相等。

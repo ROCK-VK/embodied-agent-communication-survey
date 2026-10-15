@@ -53,9 +53,16 @@ def main():
     ended_ns = None
 
     try:
-        with serial.Serial(args.port, args.baud, timeout=0.2) as ser, \
+        ser = serial.Serial(port=None, baudrate=args.baud, timeout=0.2)
+        ser.dtr = False
+        ser.rts = False
+        ser.port = args.port
+        with ser, \
                 records_path.open("x", encoding="utf-8", newline="\n") as records, \
                 raw_path.open("x", encoding="utf-8", newline="\n") as raw:
+            ser.rts = True
+            time.sleep(0.1)
+            ser.rts = False
             deadline = time.monotonic() + args.ready_timeout
             while time.monotonic() < deadline:
                 line = ser.readline().decode("utf-8", errors="replace").rstrip("\r\n")
