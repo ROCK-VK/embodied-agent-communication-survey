@@ -62,3 +62,9 @@ csi/       当前CSI方案、独立代码、匿名结果与更新记录
 [实机预检结果](csi/Jetson_VHT20只读预检结果_2026-10-16.md)：SSH成功，运行时tx_bw_mode存在、原值0x21；但Jetson当前在2.4GHz/信道2、HT关联，昨日5GHz149不能作为当前事实。未改任何设备配置。
 
 ESP是NULL被动监听，不需连接AP/配置密码；2.4GHz对照需之后匹配信道2，不能算VHT20。继续VHT20需先在有回退管理的条件下处理Jetson回5GHz，之后才能验证运行时TX限宽。当前只读，不自动切网/写参数。
+
+## 最新：2.4GHz HT类CSI已实测，导出质量门禁未通过
+
+[HT/PHY对照结果](csi/ESP32测试/结果/c5_ht_control_20261016_122842/HT_PHY对照结果.md)：复用v5/NULL、只用CFG配信道2，未烧录或改变Jetson网络。30.250秒被动sanity记录964有效HT CSI（format2/len114），746组FRAME↔CSI两侧均HT一对一。新的实证说明旁路C5并非只能得到legacy CSI。
+
+当前背景Data下FRAME/CSI队列丢弃5570/532，按sanity门禁停止，未发主动100包UDP；不是完整低速UDP对照通过，也不能计算捕获率。先另行评估输出策略并复测，之后才回5GHz研究TX/VHT20；所有设备会话已清理。

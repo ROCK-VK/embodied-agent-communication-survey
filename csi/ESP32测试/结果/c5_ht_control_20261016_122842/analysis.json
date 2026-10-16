@@ -1,0 +1,136 @@
+{
+  "capture_scope": "passive sanity only; no active UDP sender or receiver started",
+  "ready_version": "sniffer-5-packet-id",
+  "armed": [
+    {
+      "event": "ARMED",
+      "channel": 2,
+      "secondary": 0,
+      "target": "<JETSON_MAC>",
+      "mode": "NULL",
+      "rx_bw": null,
+      "ack_csi": false
+    }
+  ],
+  "stop_final_received": true,
+  "duration_s": 30.25,
+  "sender": {
+    "status": "not_run_sanity_export_quality_gate_failed"
+  },
+  "receiver": {
+    "status": "not_started"
+  },
+  "target_data_frame_callback_count": 8142,
+  "valid_target_data_csi_callback_count": 1496,
+  "target_data_frame_records": 2571,
+  "target_csi_records": 964,
+  "valid_source_confirmed_uplink_csi_records": 964,
+  "generic_shared_metadata_keys": 746,
+  "generic_one_to_one_metadata_keys": 746,
+  "one_to_one_both_ht_metadata_keys": 746,
+  "ambiguous_metadata_keys": 0,
+  "protected_frame_records": 2569,
+  "protected_csi_records": 964,
+  "frame_formats_raw": {
+    "0": 35,
+    "2": 2536
+  },
+  "frame_secondary_channel_raw": {
+    "112": 14,
+    "48": 3,
+    "0": 2536,
+    "176": 5,
+    "240": 13
+  },
+  "frame_nonzero_second_uninterpreted_count": 35,
+  "frame_phy_metadata_warning": "Some FRAME format0 records have nonzero raw second values unlike valid HT CSI. RX second is unsigned8 and its full encoding is not decoded here; do not infer 11b/bandwidth for these rows. No repair/deletion applied.",
+  "csi_formats": {
+    "2": 964
+  },
+  "csi_lengths": {
+    "114": 964
+  },
+  "csi_valid": {
+    "1": 964
+  },
+  "csi_rx_state": {
+    "0": 964
+  },
+  "csi_first_word_invalid": {
+    "0": 964
+  },
+  "csi_channels": {
+    "2": 964
+  },
+  "csi_secondary_channel_raw": {
+    "0": 964
+  },
+  "frame_types_subtypes": {
+    "2/8": 2571
+  },
+  "csi_rssi": {
+    "min": -53,
+    "max": -43
+  },
+  "frame_drop": 5570,
+  "csi_drop": 532,
+  "uart_parse_errors": 2,
+  "frame_callback_minus_queue_drop": 2572,
+  "csi_callback_minus_queue_drop": 964,
+  "observed_callback_valid_data_csi_per_s": 49.45454545454545,
+  "observed_recorded_valid_data_csi_per_s": 31.867768595041323,
+  "classification": "HT_Data_and_valid_HT_CSI_observed; full_UDP_control_not_run",
+  "format_enum_source": "https://github.com/espressif/esp-idf/blob/v5.5.5/components/esp_wifi/include/esp_wifi_he_types.h",
+  "format_names": {
+    "0": "11b",
+    "1": "legacy 11a/11g",
+    "2": "HT",
+    "3": "VHT",
+    "4": "HE_SU",
+    "5": "HE_MU",
+    "6": "HE_ERSU",
+    "7": "HE_TB",
+    "11": "VHT_MU"
+  },
+  "width_scope": "HT class is directly identified by format=2. second=0/len114 plus Jetson width state are consistent with HT20; no extra SIG bandwidth decoder or IQ layout assumption applied.",
+  "sanity_reception_validity_passed": true,
+  "sanity_export_quality_passed": false,
+  "full_trial_status": "stopped_before_active_UDP_due_to_heavy_export_loss",
+  "final_device_counters": {
+    "event": "FINAL",
+    "hostless_us": 30873388,
+    "prom_total": 71909,
+    "prom_target": 10017,
+    "prom_target_data": 8142,
+    "prom_target_mgmt": 6,
+    "prom_target_ctrl": 1869,
+    "csi_total": 50458,
+    "csi_target": 3275,
+    "csi_target_valid": 3275,
+    "csi_target_data": 1496,
+    "csi_target_data_valid": 1496,
+    "prom_target_data_protected": 8140,
+    "prom_target_data_probe": 0,
+    "csi_target_data_protected": 1496,
+    "csi_target_data_probe": 0,
+    "frame_drop": 5570,
+    "csi_drop": 532,
+    "csi_target_drop": 532,
+    "csi_empty": 0,
+    "csi_truncated": 0,
+    "csi_target_hdr_conflict": 0,
+    "prom_parsed_ta": 51380,
+    "prom_mgmt_all": 52069,
+    "prom_data_all": 19395,
+    "prom_ctrl_all": 363,
+    "prom_misc_all": 82,
+    "frame_target_drop": 5570,
+    "host_capture_mono_ns": 755843000000
+  },
+  "limits": [
+    "Queued-out records have no retained PHY distribution.",
+    "Callback and recorded rates are different; neither is a Wi-Fi capture rate.",
+    "Host summary protected counters omit drain-phase records; this audit counts all saved records.",
+    "No business packet-ID association or decryption attempted."
+  ]
+}

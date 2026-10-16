@@ -112,3 +112,7 @@ FeitCSI已退出当前主方案，不再采购/部署；此前选择仅保留在
 - 当前工作区、核对过hash的构建及板上READY均为sniffer-5-packet-id。最终60.204秒C5采集获得63条目标Data FRAME和63条有效目标Data CSI，drop=0；63条均Protected=1。timestamp/TA/FC/seq_ctrl元数据一对一匹配63/63，但FRAME/CSI均没有可见packet_id，因此业务ID↔CSI端到端关联尚未建立。
 - 已按现场问题更新分析器：通用FRAME↔CSI metadata匹配与含业务ID的FRAME↔CSI关联分开统计，避免把“加密后ID不可见”误解为两类记录无法配对。原始sender/receiver/UART/CSI证据保存在本地结果目录；公开副本仅含匿名汇总。
 - `wifi_csi_info_t`虽有payload/payload_len字段，但旁路未关联ESP不解密Protected帧。下一步需要设计用户批准的载荷可见性验证路径；本轮未切AP或改变Jetson Wi-Fi/安全设置。图像/LiDAR/狗运动仍后置。详见[packet_id方案与实测结果](数据传输与CSI关联方案.md)。
+
+## 2026-10-16 HT类首次实证与导出阻塞
+
+[本轮HT/PHY结果](ESP32测试/结果/c5_ht_control_20261016_122842/HT_PHY对照结果.md)：Jetson原2.4GHz/ch2不变、C5 v5 CFG2无烧录；30秒被动sanity964有效HT CSI、746组双侧HT唯一匹配。FRAME drop5570/CSI drop532，sanity接收通过但导出质量失败，主动UDP未执行。Protected CSI964/964，未解密。下一步须另行授权导出优化后复测，再5GHz/VHT20；本轮已STOP/释放端口、SSH退出，不自动切网/写TX参数。

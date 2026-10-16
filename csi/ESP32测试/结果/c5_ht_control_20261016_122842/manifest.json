@@ -1,0 +1,48 @@
+{
+  "status": "stopped_after_passive_sanity_export_quality_failed; no active UDP performed",
+  "target_mac": "<JETSON_MAC>",
+  "channel": 2,
+  "frequency_mhz": 2417,
+  "firmware_ready": "sniffer-5-packet-id",
+  "no_flash_performed": true,
+  "jetson_network_modified": false,
+  "tx_bw_mode_before": "0x21",
+  "windows_receiver_ip": "<PRIVATE_IP>",
+  "UDP": {
+    "count": 100,
+    "interval_s": 0.2,
+    "payload_bytes": 48,
+    "port": 39001
+  },
+  "sources": {
+    "main/sniffer.c": "253b866c19f3fbf1ee3508f1eb7db8af62352aeff479f783fa83e198532abee3",
+    "capture_packet_id.py": "31ca7b52cbbdf1f792a29f0ee1406dbf83cf8159924a0f05c603894eb567a413",
+    "udp_probe_sender.py": "835ad8c620fb1f6d01a52dd1ab689370638fd3e604b765d1fda8000291f8b70c",
+    "udp_probe_receiver.py": "1e23788a7c20fadb67456222c311bd246188672246297d9d9b1bf57c67f84daf",
+    "udp_probe_protocol.py": "728f9203eaee51b767b4ce8c14b61130bd79017462bed0d1cad34fb0eab02d8e",
+    "analyze_packet_id.py": "1b6b6521095ecb7c7d35fee68b52f95242c8b9370087aaed59913df25417ffbb"
+  },
+  "sanity_reception_validity_passed": true,
+  "sanity_export_quality_passed": false,
+  "classification": "HT Data and valid HT CSI positively observed; full UDP control not run",
+  "firmware_flash_performed": false,
+  "firmware_boot_elf_prefix": "60eafdc14",
+  "board_configuration": "same sniffer5, reset and CFG2 targetMAC only, WIFI_MODE_NULL, STOP/FINAL received",
+  "cleanup": {
+    "sender_started": false,
+    "receiver_started": false,
+    "esp_stop_final_received": true,
+    "COM10_reopen_close_verified": true,
+    "new_ssh_sessions_exited": true,
+    "jetson_still_2417mhz_channel2": true,
+    "tx_bw_mode_after": "0x21"
+  },
+  "analysis_sha256": "a5ca8ddda188084037d938a8ef769444660b03913eb3ef0a260f6aaeee2b9790",
+  "raw_integrity": {
+    "preflight_raw.txt": "3f9532e2974b4199455ee435b9b360debe017a98de879a2f5f84e07f43898a87",
+    "postflight_raw.txt": "f688811a0f801b790155bb8db83155a3125e22fd25d339ee55a363898b2e38fc",
+    "sanity\\uart_raw.log": "e1714274b04c41f472f3477149927f7f3e5229dbdb7767fb8f9b5c046ad5d5ac",
+    "sanity\\records.jsonl": "3805fe6876ef8aa5c9da8f3e92070884166a2ff344eb3bfe84802299d4b7709c",
+    "sanity\\summary.json": "ee18c0817efa8ff6c2d89cffb235024341258e1525261af959f0731219c75e25"
+  }
+}
