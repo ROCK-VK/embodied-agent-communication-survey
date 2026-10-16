@@ -1,0 +1,28 @@
+{
+  "version": "sniffer-8b-csi-centric",
+  "idf": "5.5.5",
+  "target": "esp32c5",
+  "app_size": 900896,
+  "app_address": "0x10000",
+  "record_cap": 2048,
+  "pool_depth": 24,
+  "flashed": true,
+  "tests": "6 passed including pointer-overlap rejection and tshark integration",
+  "files": {
+    "sniffer.c": "2a8ca124e4314a44ad7dd0e31f482d606fb968cf22b7206c798310c2b9c083fb",
+    "sniffer_8_csi.bin": "b70a19f0cb041f8c3f96e8470a44f3ce4377fbf94b806196f31df3d6fdead776",
+    "sniffer_8_csi.elf": "ad7fd905916798f920ea85d41b47b1da60bdffa859c17b2b8c5aa19206b0d30e"
+  },
+  "flash_verified": true,
+  "runtime_ready": "sniffer-8b-csi-centric",
+  "runtime_elf_prefix_matches": true,
+  "state": "STOP/FINAL; serial capture closed",
+  "gate_a1_passed": true,
+  "gate_a2_status": "not_proven_no_independent_authentication_tag_boundary_evidence",
+  "host_tools_sha256": {
+    "analyze8.py": "d7c5d047f513118965e031b0570f1fbfbfc9f90c29059c6f8089550a6bcdab5c",
+    "capture8.py": "ec9258328a3060be1402c1ddb2e7fa010424f1c70b8aaef6dfe104f711781fa5",
+    "test8.py": "82b0be6e843e4230acaa85ca7db113f15a0418928b3298a7e9ee29d82d6159d5",
+    "wire8.py": "3cc13821b066cab716af909e9ee7bc3f65883157dc4347bc7eb13a371e648e76"
+  }
+}

@@ -1,29 +1,25 @@
 # CSI调研与实机验证
 
-更新：2026-10-16。当前主线是HT20下业务packet_id↔FRAME↔CSI关联，VHT20/5GHz/TX参数及传感器后置。
+更新：2026-10-16。当前主线是HT20下业务packet_id与CSI关联，最新采用CSI-centric同回调记录。
 
-## 最新Gate A：未通过并停止
+## 最新结果：Gate A1通过，A2尚未证明
 
-- 当前已烧录/READY版本为sniffer-7b-raw-snapshot；设备已STOP/FINAL，COM释放，新增SSH退出。Jetson仍信道2/驱动HT20、原MAC/IP/route/TX参数，网络/驱动/服务/AP未改。
-- 最终30.025601秒：目标上行RAW callback1611，入队/输出/host1462，queue drop149；有效目标CSI callback2676，入队/输出/host2634，drop42。
-- UART写错误、binary CRC/序号/resync/半record/头部冲突、empty/truncation均0；计数可闭合，但完整Gate未过。
-- 真实PCAP可生成，1458/1460 Protected行由tshark识别CCMP；严格timestamp+TA+FC+seq_ctrl匹配0、raw dump/sig尾长解释未确认，不能声称完整MPDU/MIC已验证或业务ID已关联。
-- v7a首轮RAW437/436/drop1、CSI2600全落盘；v7b入口快照/池扩大未解决关联和队列问题。不要盲扩pool，最新历史最低heap12B。
-- 本轮没有主动UDP、重关联、主动握手或现场解密。自然出现EAPOL只保留本地，不代表完整4-way。下一步先离线诊断，等待用户确认修正版Gate A。
+当前板`sniffer-8b-csi-centric`已STOP/FINAL，串口关闭，新增SSH退出；Jetson/AP/网络/驱动/服务未修改。30秒背景窗口3913有效目标CSI callback=3913原子记录，queue drop0，串口CRC/序号/截断错误0，最低free heap65060B。
 
-## 已完成历史与边界
+CSI callback同时复制header、payload和CSI，避免v7跨回调严格join；promiscuous只导出可识别目标pair EAPOL。26B QoS头与payload重叠2B，按指针差与字节一致性重组候选PCAP。3900/3913记录被tshark识别CCMP，authentication tag完整性仍无独立证据，不等于已证明缺失。
 
-Router baseline、Jetson旁路legacy/HT CSI有实证。v6c元数据+CSI窗口曾零drop且UDP100/100、406HT唯一配对；它不等于新raw方案也能匹配。物理实验RunA碰线失效，动态响应有支持，静态遮挡重复性不足；不声称完整校准。
-
-当前安全方式上次只读为WPA2-PSK/单播CCMP/组播TKIP；旧v5/v6c缺raw密文/EAPOL，不能解密。Wireshark4.6.9工具链和官方WPA2样本仅离线验证过，未现场解密。
+当前停止于A2：不进入重关联、主动握手、新UDP或现场解密。先离线核验完整帧体/尾界，再决定下一实验。不能把SDK原生关联、标准工具识别或历史100/100 UDP描述为packet_id已关联。
 
 ## 阅读入口
 
-- [Gate A实机失败报告](ESP32测试/结果/c5_sniffer7_raw_sanity_20261016_132154/sniffer7_GateA结果.md)
-- [当前HT主方案与WPA2计划](HT主方案与WPA2业务关联计划_2026-10-16.md)
-- [raw7源码与工具](ESP32测试/sniffer_7_raw/README.md)
+- [CSI-centric结果报告](ESP32测试/结果/c5_csi_centric8_20261016_134717/CSI_centric_GateA1_A2结果.md)
+- [sniffer8源码与协议](ESP32测试/sniffer_8_csi/README.md)
+- [当前HT/WPA2计划](HT主方案与WPA2业务关联计划_2026-10-16.md)
+- [v7历史失败报告](ESP32测试/结果/c5_sniffer7_raw_sanity_20261016_132154/sniffer7_GateA结果.md)
 - [v6c HT导出与UDP历史结果](ESP32测试/结果/c5_uart_optimization_20261016_124122/HT_UART优化与主动UDP结果.md)
 - [ESP方案](ESP32_CSI测试方案.md)、[Pi方案](树莓派4B_Nexmon_CSI测试方案.md)、[路线](CSI当前路线与PoC验证.md)
 - [更新记录](更新记录.md)
 
-ESP32-C5/esp-csi当前实机，Pi4B/Nexmon和AX210+x86 Linux/PicoScenes后置；Atheros历史备用、FeitCSI退出主路线。禁止一UDP=一帧=一CSI假设。发布自有代码和匿名统计，raw Protected/EAPOL/PCAP/PSK/原Flash/Agent配置仅本地。
+Router baseline和legacy/HT CSI已有实证，不重复。v7池扩大仍drop/跨回调join0/最低heap12B，为历史失败；v8首版drop142/min7520B也未过，最终8b仅当前窗口通过。物理RunA碰线失效，动态响应有支持，静态遮挡重复性不足。
+
+ESP32-C5当前实机；Pi4B/Nexmon及AX210+x86 Linux/PicoScenes后置，Atheros历史备用、FeitCSI退出主路线。VHT20/5GHz/TX调整、ESP AP和传感器后置；禁止一UDP=一帧=一CSI。原始Protected/EAPOL/PCAP/凭据/Flash/Agent配置不公开。

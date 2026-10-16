@@ -18,3 +18,4 @@ __pycache__/
 
 # Safe defaults for standalone sniffer, no credentials
 !/ESP32测试/sniffer_jetson/sdkconfig.defaults
+!/ESP32测试/sniffer_8_csi/sdkconfig.defaults
