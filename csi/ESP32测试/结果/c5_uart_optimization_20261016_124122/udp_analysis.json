@@ -1,0 +1,166 @@
+{
+  "capture_scope": "active UDP window",
+  "ready_version": "sniffer-6c-compact-uart",
+  "armed": [
+    {
+      "event": "ARMED",
+      "channel": 2,
+      "secondary": 0,
+      "target": "<JETSON_MAC>",
+      "mode": "NULL",
+      "rx_bw": null,
+      "ack_csi": false,
+      "queue_depth": 64,
+      "free_heap": 30164
+    }
+  ],
+  "stop_final_received": true,
+  "duration_s": 60.015,
+  "sender": {
+    "status": "see endpoint logs"
+  },
+  "receiver": {
+    "status": "see endpoint logs"
+  },
+  "target_data_frame_callback_count": 550,
+  "valid_target_data_csi_callback_count": 406,
+  "target_data_frame_records": 550,
+  "target_csi_records": 406,
+  "valid_source_confirmed_uplink_csi_records": 406,
+  "generic_shared_metadata_keys": 406,
+  "generic_one_to_one_metadata_keys": 406,
+  "one_to_one_both_ht_metadata_keys": 406,
+  "ambiguous_metadata_keys": 0,
+  "protected_frame_records": 548,
+  "protected_csi_records": 406,
+  "frame_formats_raw": {
+    "0": 61,
+    "2": 489
+  },
+  "frame_secondary_channel_raw": {
+    "48": 45,
+    "0": 489,
+    "240": 5,
+    "112": 11
+  },
+  "frame_nonzero_second_uninterpreted_count": 61,
+  "frame_phy_metadata_warning": "Some FRAME format0 records have nonzero raw second values unlike valid HT CSI. RX second is unsigned8 and its full encoding is not decoded here; do not infer 11b/bandwidth for these rows. No repair/deletion applied.",
+  "csi_formats": {
+    "2": 406
+  },
+  "csi_lengths": {
+    "114": 406
+  },
+  "csi_valid": {
+    "1": 406
+  },
+  "csi_rx_state": {
+    "0": 406
+  },
+  "csi_first_word_invalid": {
+    "0": 406
+  },
+  "csi_channels": {
+    "2": 406
+  },
+  "csi_secondary_channel_raw": {
+    "0": 406
+  },
+  "frame_types_subtypes": {
+    "2/8": 550
+  },
+  "csi_rssi": {
+    "min": -57,
+    "max": -47
+  },
+  "frame_drop": 0,
+  "csi_drop": 0,
+  "uart_parse_errors": 0,
+  "frame_callback_minus_queue_drop": 550,
+  "csi_callback_minus_queue_drop": 406,
+  "observed_callback_valid_data_csi_per_s": 6.764975422810964,
+  "observed_recorded_valid_data_csi_per_s": 6.764975422810964,
+  "classification": "HT_Data_and_valid_HT_CSI_observed",
+  "format_enum_source": "https://github.com/espressif/esp-idf/blob/v5.5.5/components/esp_wifi/include/esp_wifi_he_types.h",
+  "format_names": {
+    "0": "11b",
+    "1": "legacy 11a/11g",
+    "2": "HT",
+    "3": "VHT",
+    "4": "HE_SU",
+    "5": "HE_MU",
+    "6": "HE_ERSU",
+    "7": "HE_TB",
+    "11": "VHT_MU"
+  },
+  "width_scope": "HT class is directly identified by format=2. second=0/len114 plus Jetson width state are consistent with HT20; no extra SIG bandwidth decoder or IQ layout assumption applied.",
+  "sanity_reception_validity_passed": true,
+  "sanity_export_quality_passed": true,
+  "full_trial_status": "active_window_export_passed",
+  "final_device_counters": {
+    "event": "FINAL",
+    "hostless_us": 60655283,
+    "prom_total": 122421,
+    "prom_target": 1347,
+    "prom_target_data": 550,
+    "prom_target_mgmt": 6,
+    "prom_target_ctrl": 791,
+    "csi_total": 113936,
+    "csi_target": 1119,
+    "csi_target_valid": 1119,
+    "csi_target_data": 406,
+    "csi_target_data_valid": 406,
+    "prom_target_data_protected": 548,
+    "prom_target_data_probe": 0,
+    "csi_target_data_protected": 406,
+    "csi_target_data_probe": 0,
+    "frame_drop": 0,
+    "csi_drop": 0,
+    "csi_target_drop": 0,
+    "csi_empty": 0,
+    "csi_truncated": 0,
+    "csi_target_hdr_conflict": 0,
+    "prom_parsed_ta": 70930,
+    "prom_mgmt_all": 116175,
+    "prom_data_all": 5703,
+    "prom_ctrl_all": 434,
+    "prom_misc_all": 109,
+    "frame_target_drop": 0,
+    "frame_enqueued": 550,
+    "csi_enqueued": 406,
+    "frame_output": 550,
+    "csi_output": 406,
+    "queue_high_water": 17,
+    "serial_bytes": 275917,
+    "serial_write_errors": 0,
+    "record_serial": 956,
+    "host_capture_mono_ns": 2183515000000
+  },
+  "limits": [
+    "No wireless capture-rate denominator is available.",
+    "CSI and FRAME counts include background traffic.",
+    "Metadata pairs do not identify encrypted business packet IDs.",
+    "Raw HT CSI bytes preserved; no IQ layout interpretation applied."
+  ],
+  "transport_audit": {
+    "host_records": 956,
+    "sequence_contiguous_from_one": true,
+    "duplicate_ids": 0,
+    "output_equals_host": true,
+    "enqueued_equals_output": true
+  },
+  "quality_checks": {
+    "ready_and_final": true,
+    "queue_drop_zero": true,
+    "serial_write_errors_zero": true,
+    "parse_errors_zero": true,
+    "empty_truncated_zero": true,
+    "record_sequence_complete": true,
+    "device_output_equals_host": true,
+    "queue_fully_drained": true,
+    "callback_queue_reconciled": true,
+    "valid_source_and_ht_pairs": true
+  },
+  "export_quality_passed": true,
+  "event_wire_bytes_per_s": 4597.467299841706
+}

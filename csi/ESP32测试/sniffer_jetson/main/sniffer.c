@@ -10,6 +10,8 @@
 #include "esp_wifi.h"
 #include "esp_mac.h"
 #include "esp_event.h"
+#include "esp_log.h"
+#include "esp_system.h"
 #include "esp_netif.h"
 #include "esp_timer.h"
 #include "nvs_flash.h"
@@ -17,7 +19,7 @@
 #include "esp_vfs_dev.h"
 
 #define CSI_CAP 2048
-#define DEPTH 32
+#define DEPTH 64
 #define PROBE_HEADER_LEN 28
 #define PROBE_PAYLOAD_LEN 16
 #define PROBE_TRAILER_LEN 4
@@ -37,6 +39,8 @@ static atomic_uint csi_target_hdr_conflict;
 static atomic_uint prom_target_data_protected, prom_target_data_probe;
 static atomic_uint csi_target_data_protected, csi_target_data_probe;
 static uint8_t listen_channel;
+static atomic_uint frame_enqueued, csi_enqueued, frame_output, csi_output;
+static atomic_uint queue_high_water, serial_bytes, serial_write_errors, record_serial;
 
 typedef struct {
     uint8_t kind, target, ta_present, ra[6], ta[6], source[6];
@@ -151,6 +155,10 @@ static void set_probe_fields(event_t *e, probe_result_t probe) {
     e->probe_sender_mono_ns = probe.sender_mono_ns;
 }
 
+static void observe_queue(void) {
+    unsigned n = uxQueueMessagesWaiting(queue), old = atomic_load(&queue_high_water);
+    while (old < n && !atomic_compare_exchange_weak(&queue_high_water, &old, n)) {}
+}
 static void prom_cb(void *buf, wifi_promiscuous_pkt_type_t kind) {
     if (!buf) return;
     atomic_fetch_add(&prom_total, 1);
@@ -183,6 +191,7 @@ static void prom_cb(void *buf, wifi_promiscuous_pkt_type_t kind) {
     if (probe.status == PROBE_STATUS_PROTECTED) atomic_fetch_add(&prom_target_data_protected, 1);
     if (probe.status == PROBE_STATUS_VALID) atomic_fetch_add(&prom_target_data_probe, 1);
     if (xQueueSend(queue, &e, 0) != pdTRUE) { atomic_fetch_add(&frame_drop, 1); atomic_fetch_add(&frame_target_drop,1); }
+    else { atomic_fetch_add(&frame_enqueued, 1); observe_queue(); }
 }
 static void csi_cb(void *ctx, wifi_csi_info_t *p) {
     (void)ctx;
@@ -224,23 +233,48 @@ static void csi_cb(void *ctx, wifi_csi_info_t *p) {
     if (xQueueSend(queue, &e, 0) != pdTRUE) {
         atomic_fetch_add(&csi_drop, 1);
         if (target) atomic_fetch_add(&csi_target_drop, 1);
-    }
+    } else { atomic_fetch_add(&csi_enqueued, 1); observe_queue(); }
 }
 #define U(v) ((unsigned)atomic_load(&(v)))
 static void stats(const char *event) {
-    printf("{\"event\":\"%s\",\"hostless_us\":%" PRId64 ",\"prom_total\":%u,\"prom_target\":%u,\"prom_target_data\":%u,\"prom_target_mgmt\":%u,\"prom_target_ctrl\":%u,\"csi_total\":%u,\"csi_target\":%u,\"csi_target_valid\":%u,\"csi_target_data\":%u,\"csi_target_data_valid\":%u,\"prom_target_data_protected\":%u,\"prom_target_data_probe\":%u,\"csi_target_data_protected\":%u,\"csi_target_data_probe\":%u,\"frame_drop\":%u,\"csi_drop\":%u,\"csi_target_drop\":%u,\"csi_empty\":%u,\"csi_truncated\":%u,\"csi_target_hdr_conflict\":%u,\"prom_parsed_ta\":%u,\"prom_mgmt_all\":%u,\"prom_data_all\":%u,\"prom_ctrl_all\":%u,\"prom_misc_all\":%u,\"frame_target_drop\":%u}\n",
-        event, esp_timer_get_time(), U(prom_total),U(prom_target),U(prom_target_data),U(prom_target_mgmt),U(prom_target_ctrl),U(csi_total),U(csi_target),U(csi_target_valid),U(csi_target_data),U(csi_target_data_valid),U(prom_target_data_protected),U(prom_target_data_probe),U(csi_target_data_protected),U(csi_target_data_probe),U(frame_drop),U(csi_drop),U(csi_target_drop),U(csi_empty),U(csi_truncated),U(csi_target_hdr_conflict),U(prom_parsed_ta),U(prom_mgmt_all),U(prom_data_all),U(prom_ctrl_all),U(prom_misc_all),U(frame_target_drop));
+    printf("{\"event\":\"%s\",\"hostless_us\":%" PRId64 ",\"prom_total\":%u,\"prom_target\":%u,\"prom_target_data\":%u,\"prom_target_mgmt\":%u,\"prom_target_ctrl\":%u,\"csi_total\":%u,\"csi_target\":%u,\"csi_target_valid\":%u,\"csi_target_data\":%u,\"csi_target_data_valid\":%u,\"prom_target_data_protected\":%u,\"prom_target_data_probe\":%u,\"csi_target_data_protected\":%u,\"csi_target_data_probe\":%u,\"frame_drop\":%u,\"csi_drop\":%u,\"csi_target_drop\":%u,\"csi_empty\":%u,\"csi_truncated\":%u,\"csi_target_hdr_conflict\":%u,\"prom_parsed_ta\":%u,\"prom_mgmt_all\":%u,\"prom_data_all\":%u,\"prom_ctrl_all\":%u,\"prom_misc_all\":%u,\"frame_target_drop\":%u,\"frame_enqueued\":%u,\"csi_enqueued\":%u,\"frame_output\":%u,\"csi_output\":%u,\"queue_high_water\":%u,\"serial_bytes\":%u,\"serial_write_errors\":%u,\"record_serial\":%u}\n",
+        event, esp_timer_get_time(), U(prom_total),U(prom_target),U(prom_target_data),U(prom_target_mgmt),U(prom_target_ctrl),U(csi_total),U(csi_target),U(csi_target_valid),U(csi_target_data),U(csi_target_data_valid),U(prom_target_data_protected),U(prom_target_data_probe),U(csi_target_data_protected),U(csi_target_data_probe),U(frame_drop),U(csi_drop),U(csi_target_drop),U(csi_empty),U(csi_truncated),U(csi_target_hdr_conflict),U(prom_parsed_ta),U(prom_mgmt_all),U(prom_data_all),U(prom_ctrl_all),U(prom_misc_all),U(frame_target_drop),U(frame_enqueued),U(csi_enqueued),U(frame_output),U(csi_output),U(queue_high_water),U(serial_bytes),U(serial_write_errors),U(record_serial));
 }
+// Compact ASCII v1: preserve matching metadata and raw SDK bytes.
+// Direct bulk UART write bypasses VFS per-byte tx_func calls.
+// Only output_task writes records/STATS after ARMED.
 static void print_event(const event_t *e) {
-    printf("{\"event\":\"%s\",\"target\":%u,\"timestamp\":%u,\"rssi\":%d,\"channel\":%u,\"second\":%u,\"format\":%u,\"rate\":%u,\"sig_len\":%u,\"dump_len\":%u,\"rx_state\":%u,\"estimate_valid\":%u,\"estimate_len\":%u,\"he_siga1\":%" PRIu32 ",\"he_siga2\":%u,\"fc\":%u,\"frame_type\":%u,\"subtype\":%u,\"to_ds\":%u,\"from_ds\":%u,\"protected\":%u,\"app_probe_status\":%u,\"app_run_id\":%" PRIu32 ",\"app_packet_id\":%" PRIu32 ",\"app_sender_mono_ns\":%" PRIu64 ",\"seq_ctrl\":%u,\"ta_present\":%u,\"ta\":\"" MACSTR "\",\"ra\":\"" MACSTR "\",\"source\":\"" MACSTR "\",\"rx_seq\":%u,\"len\":%u,\"copied\":%u,\"first_word_invalid\":%u",
-        e->kind ? "CSI" : "FRAME", e->target, (unsigned)e->meta.timestamp, e->meta.rssi, e->meta.channel, e->meta.second, e->meta.cur_bb_format, e->meta.rate, e->meta.sig_len, e->meta.dump_len, e->meta.rx_state, e->valid, e->meta.rx_channel_estimate_len, e->meta.he_siga1, e->meta.he_siga2,
-        e->fc,(e->fc>>2)&3,(e->fc>>4)&15,(e->fc>>8)&1,(e->fc>>9)&1,e->fc_protected,e->probe_status,e->probe_run_id,e->probe_packet_id,e->probe_sender_mono_ns,e->seq_ctrl,e->ta_present,MAC2STR(e->ta),MAC2STR(e->ra),MAC2STR(e->source),e->rx_seq,e->len,e->copied,e->first_invalid);
-    if (e->kind) {
-        printf(",\"data_hex\":\"");
-        for (unsigned i=0;i<e->copied;i++) printf("%02x",(uint8_t)e->data[i]);
-        printf("\"");
+    static char line[CSI_CAP * 2 + 768];
+    static const char hex[] = "0123456789abcdef";
+    unsigned id = atomic_fetch_add(&record_serial, 1) + 1;
+    int n = snprintf(line, sizeof(line),
+        "{\"e\":\"%c\",\"i\":%u,\"t\":%u,\"fc\":%u,\"q\":%u,\"ta\":\"" MACSTR "\",\"ra\":\"" MACSTR "\",\"f\":%u,\"ch\":%u,\"s\":%u,\"r\":%d,\"st\":%u,\"rate\":%u,\"pr\":%u",
+        e->kind ? 'C' : 'F', id, (unsigned)e->meta.timestamp, e->fc, e->seq_ctrl,
+        MAC2STR(e->ta), MAC2STR(e->ra), e->meta.cur_bb_format, e->meta.channel,
+        e->meta.second, e->meta.rssi, e->meta.rx_state, e->meta.rate, e->probe_status);
+    if (n < 0 || (unsigned)n >= sizeof(line)) { atomic_fetch_add(&serial_write_errors, 1); return; }
+    if (e->probe_status == PROBE_STATUS_VALID) {
+        n += snprintf(line+n, sizeof(line)-n, ",\"rid\":%" PRIu32 ",\"pid\":%" PRIu32 ",\"tx\":%" PRIu64,
+            e->probe_run_id, e->probe_packet_id, e->probe_sender_mono_ns);
     }
-    printf("}\n");
+    if (e->kind) {
+        n += snprintf(line+n, sizeof(line)-n,
+            ",\"src\":\"" MACSTR "\",\"v\":%u,\"w\":%u,\"n\":%u,\"c\":%u,\"g1\":%" PRIu32 ",\"g2\":%u,\"x\":%u,\"hx\":\"",
+            MAC2STR(e->source), e->valid, e->first_invalid, e->len, e->copied,
+            e->meta.he_siga1, e->meta.he_siga2, e->rx_seq);
+        if (n < 0 || (unsigned)n + e->copied*2 + 4 >= sizeof(line)) { atomic_fetch_add(&serial_write_errors, 1); return; }
+        for (unsigned j=0;j<e->copied;j++) {
+            uint8_t value = (uint8_t)e->data[j]; line[n++]=hex[value>>4]; line[n++]=hex[value&15];
+        }
+        line[n++]='"';
+    }
+    line[n++]='}'; line[n++]='\n';
+    int result=uart_write_bytes(UART_NUM_0,line,n);
+    size_t written=result > 0 ? (size_t)result : 0;
+    atomic_fetch_add(&serial_bytes, written);
+    if (written != (size_t)n) atomic_fetch_add(&serial_write_errors, 1);
+    else if (e->kind) atomic_fetch_add(&csi_output, 1);
+    else atomic_fetch_add(&frame_output, 1);
 }
 static void output_task(void *arg) {
     (void)arg;
@@ -256,9 +290,9 @@ static void output_task(void *arg) {
 }
 void app_main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
-    ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0, 2048, 0, 0, NULL, 0));
+    ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0, 2048, 16384, 0, NULL, 0));
     esp_vfs_dev_uart_use_driver(UART_NUM_0);
-    printf("{\"event\":\"READY\",\"version\":\"sniffer-5-packet-id\",\"max_csi_bytes\":%d}\n",CSI_CAP);
+    printf("{\"event\":\"READY\",\"version\":\"sniffer-6c-compact-uart\",\"max_csi_bytes\":%d}\n",CSI_CAP);
     char line[128]; unsigned ch,m[6];
     for (;;) {
         if (fgets(line,sizeof(line),stdin) && sscanf(line,"CFG,%u,%x:%x:%x:%x:%x:%x",&ch,&m[0],&m[1],&m[2],&m[3],&m[4],&m[5])==7 && ch>0 && ch<200) {
@@ -276,6 +310,8 @@ void app_main(void) {
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     wifi_init_config_t init = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&init));
+    esp_log_level_set("main_task", ESP_LOG_NONE);
+    esp_log_level_set("wifi", ESP_LOG_NONE); // ESP only; keep UART records uninterrupted
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_NULL));
     ESP_ERROR_CHECK(esp_wifi_set_country_code("CN",false));
@@ -299,7 +335,7 @@ void app_main(void) {
     ESP_ERROR_CHECK(esp_wifi_set_csi(true));
     uint8_t actual=0;wifi_second_chan_t secondary=WIFI_SECOND_CHAN_NONE;
     ESP_ERROR_CHECK(esp_wifi_get_channel(&actual,&secondary));
-    printf("{\"event\":\"ARMED\",\"channel\":%u,\"secondary\":%u,\"target\":\"" MACSTR "\",\"mode\":\"NULL\",\"rx_bw\":null,\"ack_csi\":false}\n",actual,secondary,MAC2STR(target_mac));
+    printf("{\"event\":\"ARMED\",\"channel\":%u,\"secondary\":%u,\"target\":\"" MACSTR "\",\"mode\":\"NULL\",\"rx_bw\":null,\"ack_csi\":false,\"queue_depth\":%u,\"free_heap\":%u}\n",actual,secondary,MAC2STR(target_mac),DEPTH,(unsigned)esp_get_free_heap_size());
     configASSERT(xTaskCreate(output_task,"serial_output",6144,NULL,5,NULL)==pdPASS);
     for (;;) {
         if (fgets(line,sizeof(line),stdin) && strncmp(line,"STOP",4)==0) {

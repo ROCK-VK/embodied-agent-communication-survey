@@ -1,0 +1,24 @@
+{
+  "version": "sniffer-6c-compact-uart",
+  "idf": "v5.5.5",
+  "baud": 921600,
+  "tx_ring_bytes": 16384,
+  "queue_depth": 64,
+  "csi_cap_bytes": 2048,
+  "files": {
+    "sniffer.c": "bb6fb81d10a4b51fbe040df2a49ea871eac4b96e184b56ddb86963c4a4e3a10c",
+    "compact_uart.py": "7114f9d6c416c8a1b9ed0e8797daef0a42c4ffd2e9fb7875f4f044d62f566e7c",
+    "capture_compact_uart.py": "d0c9ea24f5d02655d02335d127654080ec1ca4fbb52df0367d4b1cf29976c253",
+    "audit_compact_export.py": "06ad0764f6c029ea1c4bdafdd62b50b8eb36334cab3ac6bfe9a23eeeed6b53aa",
+    "sniffer_jetson.bin": "5c059003ae9b6bd88a34ba75662a9cb0bd7f4628b8cf447f53c1a30224e346cb",
+    "sniffer_jetson.elf": "4484395f676bc56433bf5463ade659680ece4617602efb81a245d546b1fe6a9b"
+  },
+  "build": "pass, app0xdbb80, partition free14%",
+  "flash": "app-only at0x10000, esptool hash verified",
+  "runtime": "READY v6c and ARMED ch2 in sanity; final evidence in raw UART",
+  "offline_tests": "4 passed",
+  "limits": [
+    "30-second sanity used lower background load than prior heavy window",
+    "ARMED free heap30164B before output task; not long-term memory stress validation"
+  ]
+}
