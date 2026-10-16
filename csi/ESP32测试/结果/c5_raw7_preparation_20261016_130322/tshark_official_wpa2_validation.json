@@ -1,0 +1,9 @@
+{
+  "tool_version": "4.6.9",
+  "source": "Wireshark v4.6.9 official WPA2 PSK CCMP/TKIP regression fixture",
+  "icmp_without_decryption": 0,
+  "icmp_with_decryption": 5,
+  "site_network_decryption_tested": false,
+  "site_keys_read": false,
+  "fixture_keys_stored_private": true
+}

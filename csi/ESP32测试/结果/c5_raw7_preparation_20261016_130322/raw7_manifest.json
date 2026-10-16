@@ -1,0 +1,25 @@
+{
+  "version": "sniffer-7-raw-binary",
+  "idf": "v5.5.5",
+  "build": "passed, app0xdb520, 14% free",
+  "flashed": false,
+  "runtime_validated": false,
+  "device_still_last_verified": "sniffer-6c-compact-uart, stopped; no serial operation this round",
+  "raw_cap": 4096,
+  "csi_cap": 2048,
+  "pool_depth": 24,
+  "uart_tx_ring": 16384,
+  "baud": 921600,
+  "files": {
+    "main\\sniffer.c": "2012997f2d5eb2ee7acd2a5e47c1a05d1e41fe71996aea73f44e66319cef1d66",
+    "sniffer_7_raw.bin": "5025fb11dac863a6c99346ac71b5b98fc646b090df4cef1aa0df29cd2dbfe3f5",
+    "sniffer_7_raw.elf": "4748d278a5ecd4c4dcb7652d7634cebf7c41f61a8a7cd74f026e531b8607c9ea",
+    "tools\\associate_ids.py": "ad76b0b640c0f7e82413940c6e4674633df70a5404dee89c3de09a8ae31acf68",
+    "tools\\capture_raw7.py": "0f03821e1aaadce6d519a4035d85e860873537fc605a58919ae5f81bb7e61a84",
+    "tools\\convert_raw7.py": "26fc423bd0b5bc08be5021cd7c6746886540f57f8604f7c2a76877d18852783e",
+    "tools\\extract_tshark_ids.py": "13af435fd63801ffafa95d994a24bafc41a5a7f3b5b3b8559e6eabf309258a80",
+    "tools\\raw7.py": "56abf81fa82de987dec8f4e7e8abb6b33ec7f200b270a893bcbddf57ae2c75c9",
+    "tools\\test_raw7.py": "8dced7a62170037bd989dc12079471f4ee7a36864f25769e812336d0dc3ebe16",
+    "tools\\udp_probe_protocol.py": "728f9203eaee51b767b4ce8c14b61130bd79017462bed0d1cad34fb0eab02d8e"
+  }
+}

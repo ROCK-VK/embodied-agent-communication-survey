@@ -1,5 +1,12 @@
 # CSI调研与实机验证
 
+## 最新：HT20业务关联与raw7离线准备（2026-10-16）
+
+当前驱动状态已核对为HT20；wpa_cli实际WPA2-PSK、单播CCMP/组播TKIP。旧FRAME只有元数据、没有密文或握手，不能直接生成可解密pcap。独立sniffer7 binary候选已构建、9项离线测试和tshark合成PCAP/官方WPA2样本验证通过，**未烧录、未重关联、未发新UDP**；设备仍最后验证的v6c。
+
+当前优先HT20 raw Data+EAPOL→PC离线解密→packet_id关联，暂停VHT20/5GHz/TX参数。现场实验必须等用户再次确认和安全管理回退。[正式计划](HT主方案与WPA2业务关联计划_2026-10-16.md)、[raw7源码与工具](ESP32测试/sniffer_7_raw/README.md)。
+
+
 更新：2026-10-16。公开副本由本地白名单生成，现场标识匿名；原始数据/完整日志/Agent配置仅本地。
 
 ## 当前结果
@@ -24,7 +31,7 @@
 
 ## 下一步与边界
 
-先核对匹配驱动tx_bw_mode语义及管理回退，再安排回5GHz、VHT20小/大包档；现场管理门禁未满足时不通过当前wlan0 SSH切网。之后才raw frame/EAPOL、PC离线解密、packet_id关联、ESP AP对照，最后JPEG/LiDAR/位姿。
+当前顺序以顶部最新HT20业务关联计划为准；下列已完成结果属于v6c历史验证。VHT20/5GHz/TX参数、ESP AP和传感器暂时后置。
 
 路线为ESP32-C5/esp-csi、Pi4B Nexmon CSI、AX210+x86 Linux/PicoScenes；Pi未部署，PicoScenes不在ARM/WSL安装。Atheros历史备用，FeitCSI退出主方案。
 

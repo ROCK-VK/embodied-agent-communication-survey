@@ -1,5 +1,12 @@
 # 机器狗CSI调研与实机验证
 
+## 最新：HT20业务关联与raw7离线准备（2026-10-16）
+
+当前驱动状态已核对为HT20；wpa_cli实际WPA2-PSK、单播CCMP/组播TKIP。旧FRAME只有元数据、没有密文或握手，不能直接生成可解密pcap。独立sniffer7 binary候选已构建、9项离线测试和tshark合成PCAP/官方WPA2样本验证通过，**未烧录、未重关联、未发新UDP**；设备仍最后验证的v6c。
+
+当前优先HT20 raw Data+EAPOL→PC离线解密→packet_id关联，暂停VHT20/5GHz/TX参数。现场实验必须等用户再次确认和安全管理回退。[正式计划](csi/HT主方案与WPA2业务关联计划_2026-10-16.md)、[raw7源码与工具](csi/ESP32测试/sniffer_7_raw/README.md)。
+
+
 当前重点是Jetson普通Wi-Fi上行的CSI采集与业务数据关联。较早的通信盘点与模拟仿真保留在[归档](归档/README.md)。
 
 ## 最新进度（2026-10-16）
@@ -27,6 +34,6 @@
 - [当前固件](csi/ESP32测试/sniffer_jetson/main/sniffer.c)、[新版串口采集](csi/ESP32测试/sniffer_jetson/capture_compact_uart.py)
 - [更新记录](csi/更新记录.md)、[历史归档](归档/README.md)
 
-下一步先确认RTL8821CU限TX语义与独立管理回退，再VHT20两档测试；之后才PC离线解密和业务ID关联，传感器后置。未经现场门禁不直接通过wlan0 SSH切网。
+下一步等待用户确认后进行raw7 sanity，再在独立管理下授权Jetson重关联捕握手，之后PC离线解密和业务ID关联。VHT20暂缓；未经现场门禁不通过wlan0 SSH断网。
 
 三条路线为ESP32-C5/esp-csi、Pi4B/Nexmon CSI、AX210+x86 Linux/PicoScenes。Atheros仅历史参考，FeitCSI退出主方案。公开文件均脱敏，原始记录/凭据/Flash/Agent规则仅本地；不宣称一UDP=一帧=一CSI。

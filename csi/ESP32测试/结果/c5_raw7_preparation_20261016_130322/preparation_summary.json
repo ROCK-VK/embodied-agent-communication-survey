@@ -1,0 +1,57 @@
+{
+  "status": "offline preparation complete; stop before flashing or live handshake capture",
+  "ht_bandwidth": "HT20 driver current state",
+  "bandwidth_evidence": {
+    "cur_bw": 0,
+    "oper_bw": 0,
+    "bwmode": 0,
+    "ht_en": 1,
+    "vht_en": 0,
+    "channel": 2,
+    "frequency_mhz": 2417
+  },
+  "security": {
+    "state": "COMPLETED",
+    "key_mgmt": "WPA2-PSK",
+    "pairwise": "CCMP",
+    "group": "TKIP",
+    "ap_advertisement": "WPA1/WPA2 mixed PSK, TKIP/CCMP",
+    "wpa3_current": false
+  },
+  "existing_data_conclusion": "B: insufficient for authentic raw80211 PCAP/decryption; full MAC/ciphertext/IV-PN-MIC/EAPOL absent",
+  "raw7": {
+    "build_pass": true,
+    "app_bytes": 898336,
+    "app_partition_free_percent": 14,
+    "flashed": false,
+    "live_tested": false,
+    "binary": true,
+    "uart_baud": 921600,
+    "raw_cap": 4096,
+    "csi_cap": 2048,
+    "pool_depth": 24
+  },
+  "offline": {
+    "unit_tests": 9,
+    "unit_tests_passed": true,
+    "python_ast_passed": true,
+    "synthetic_pcap_tshark_csid_passed": true,
+    "synthetic_stream_conversion_passed": true,
+    "official_wpa2_fixture_icmp_without_decryption": 0,
+    "official_wpa2_fixture_icmp_with_decryption": 5
+  },
+  "device_last_verified": "sniffer-6c-compact-uart stopped; not accessed via COM this round",
+  "jetson_network_modified": false,
+  "udp_sent_this_round": 0,
+  "handshake_captured_this_round": false,
+  "site_psk_read": false,
+  "site_decryption_tested": false,
+  "ssh_sessions_closed": true,
+  "next_requires_user_confirmation": true,
+  "limits": [
+    "raw MPDU completeness/IV-PN-MIC and UART throughput untested on C5",
+    "no authentic site handshake or packet-ID-to-CSI mapping",
+    "fragment/A-MSDU ancestry mapping remains incomplete",
+    "driver width is not per-PPDU RF measurement"
+  ]
+}
