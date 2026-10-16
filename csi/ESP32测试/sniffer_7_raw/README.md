@@ -1,13 +1,11 @@
-# sniffer-7 raw binary候选（尚未烧录）
+# sniffer-7 raw binary（当前v7b，Gate A未通过）
 
-本子项目与现行sniffer_jetson/v6c分开；仅构建和离线验证，不代表设备运行版本。
+当前main/build/app/READY为sniffer-7b-raw-snapshot，app-only烧录，设备已STOP；现行v6c仅作为历史对照。Gate A未过，不进入重关联/主动EAPOL/UDP/现场解密。
 
-固件：main/sniffer.c，ESP32-C5/IDF5.5.5；CS7R v1/62B LE头+payload+CRC32，pool24/raw4096/CSI2048/TX16KB/UART921600。CFG接受channel、目标STA和AP MAC，精确pair双向Data、目标uplink有效CSI；RAW dump_len按SDK不含FCS，超cap标truncated，不伪造/解密。
+CS7R v1：62B LE头+payload+CRC32；raw cap4096/CSI cap2048、WiFi启动后calloc pool32、TX16KB/UART921600；精确目标上行Data+可识别pair EAPOL，普通AP下行不导出；其它流量只计数。
 
-Windows工具：tools/raw7.py、capture_raw7.py（本轮未运行）、convert_raw7.py、extract_tshark_ids.py、associate_ids.py、test_raw7.py。旧v6c采集器不适用。
+最新30秒RAW1611 callback/1462落盘/drop149，CSI2676/2634/drop42；binary完整、严格FRAME↔CSI匹配0，dump/sig帧尾长度未确认。头部/CCMP标准解析存在正证据，不代表完整MIC或后续解密已验证。入口snapshot和扩大pool没有恢复匹配，历史min heap12B，不盲目重复失败方案。
 
-完整协议、吞吐预算、实际带宽/安全方式、离线测试及现场门禁见[HT主方案计划](../../HT主方案与WPA2业务关联计划_2026-10-16.md)。正式使用前必须用户确认；不可自动重关联/烧录/发UDP。
+工具：tools/raw7.py、capture_raw7.py、convert_raw7.py、audit_gate_a.py（明确禁解密）、extract_tshark_ids.py、associate_ids.py、test_raw7.py。11项离线回归通过，不能替代Gate A；检测raw/header冲突保留证据且Gate失败。现场Protected帧/握手/PSK不公开。
 
-离线示例：python tools/test_raw7.py；python tools/convert_raw7.py <私有stream.bin> <新输出目录>。PCAP需要同名stream.bin.times.jsonl，不发明主机绝对时间；CRC/序号/长度错误时不生成PCAP。
-
-raw帧/握手/PSK配置仅本地，公开仓库只放源码与匿名摘要。tshark解密由私有profile提供密钥，不提供密码CLI选项。关联保留多重候选，分片/A-MSDU完整祖先映射尚未实现，不声称1UDP=1帧=1CSI。raw吞吐/内存/握手及现场解密仍待硬件验证。
+详细进展和现场门禁见[HT主方案](../../HT主方案与WPA2业务关联计划_2026-10-16.md)。下一步只离线诊断，用户确认后才安排修正版Gate A。

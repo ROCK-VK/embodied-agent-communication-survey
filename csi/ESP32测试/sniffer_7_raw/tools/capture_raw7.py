@@ -20,14 +20,14 @@ def main():
     if not all(re.fullmatch(r'(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}',m) for m in (a.target,a.ap)) or not 1<=a.channel<=196 or a.duration<=0:p.error('invalid pair/channel/duration')
     a.output.mkdir(parents=True,exist_ok=False);d=Decoder();armed=False;final=None
     s=serial.Serial(port=None,baudrate=921600,timeout=.1);s.dtr=False;s.rts=False;s.port=a.port
-    with s,(a.output/'stream.bin').open('xb') as raw,(a.output/'stream.bin.times.jsonl').open('x',encoding='utf-8') as times:
+    with s,(a.output/'stream.bin').open('xb') as raw,(a.output/'stream.bin.times.jsonl').open('x',encoding='utf-8') as times,(a.output/'boot_private.log').open('xb') as boot:
         s.rts=True;time.sleep(.1);s.rts=False;deadline=time.monotonic()+30;ready=None
         while time.monotonic()<deadline:
-            line=s.readline()
+            line=s.readline();boot.write(line)
             try:r=json.loads(line)
             except (ValueError,UnicodeError):continue
             if r.get('event')=='READY':ready=r;break
-        if not ready or ready.get('version')!='sniffer-7-raw-binary':raise RuntimeError('raw7 READY not found; no CFG sent')
+        if not ready or ready.get('version')!='sniffer-7b-raw-snapshot':raise RuntimeError('raw7 READY not found; no CFG sent')
         s.write(f'CFG,{a.channel},{a.target},{a.ap}\n'.encode());deadline=time.monotonic()+30;stop_sent=False
         try:
             while True:
@@ -47,7 +47,7 @@ def main():
                 if final:break
         finally:
             if not final:s.write(b'STOP\n') # Best-effort stop on exceptions; lack of FINAL stays a failure.
-    result=dict(ready=ready,armed=armed,final=final,transport=d.finish(),hardware_capture_validated=False)
+    result=dict(ready=ready,armed=armed,final=final,transport=d.finish(),gate_a_requires_separate_audit=True)
     (a.output/'summary.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
     if not final:raise RuntimeError('missing FINAL; do not continue UDP/decryption')
 

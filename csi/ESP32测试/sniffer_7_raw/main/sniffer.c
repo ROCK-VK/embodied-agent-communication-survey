@@ -1,5 +1,6 @@
-// Passive, pair-scoped raw MPDU + uplink CSI capture. Offline candidate: NOT FLASHED.
+// Gate A: target uplink Data + pair EAPOL only; no ordinary downlink raw export.
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdatomic.h>
@@ -19,7 +20,7 @@
 
 #define CAP 4096
 #define CSI_CAP 2048
-#define DEPTH 24
+#define DEPTH 32
 #define HDR 62
 #define RAW 1
 #define CSI 2
@@ -31,12 +32,15 @@
 #define EAPOL 4
 #define UPLINK 8
 typedef struct { uint8_t header[HDR]; uint8_t data[CAP]; } event_t;
-static event_t pool[DEPTH];
+static event_t *pool;
 static QueueHandle_t free_slots, events;
 static uint8_t target[6], ap[6];
 static unsigned channel, serial_id;
 static atomic_bool running;
 static atomic_uint prom_total, pair_frames, eapol_frames, csi_total, target_csi;
+static atomic_uint prom_data_all, prom_mgmt_all, prom_ctrl_all, prom_misc_all;
+static atomic_uint pair_seen, uplink_data_cb, downlink_eapol_cb, csi_source_cb;
+static atomic_uint raw_scope_changed;
 static atomic_uint raw_drop, csi_drop, raw_enqueued, csi_enqueued, raw_output, csi_output;
 static atomic_uint raw_truncated, csi_truncated, csi_empty, hdr_conflict, high_water, write_errors, wire_bytes;
 static uint16_t le16(const uint8_t *p) { return p[0] | (p[1]<<8); }
@@ -74,41 +78,60 @@ static void common(event_t *e,unsigned kind,const wifi_pkt_rx_ctrl_t *m,const ui
 }
 static void enqueue(event_t *e) {
     // A free pool slot guarantees room in the equally sized pointer queue.
+    unsigned kind=e->header[5];
     configASSERT(xQueueSend(events,&e,0)==pdTRUE);
-    if(e->header[5]==RAW) atomic_fetch_add(&raw_enqueued,1);else atomic_fetch_add(&csi_enqueued,1);
+    if(kind==RAW) atomic_fetch_add(&raw_enqueued,1);else atomic_fetch_add(&csi_enqueued,1);
     unsigned n=uxQueueMessagesWaiting(events),old=atomic_load(&high_water);
     while(n>old && !atomic_compare_exchange_weak(&high_water,&old,n)) {}
 }
 static void prom_cb(void *buf,wifi_promiscuous_pkt_type_t kind) {
     atomic_fetch_add(&prom_total,1);
-    if(!buf || kind!=WIFI_PKT_DATA) return; // No misc payload dereference.
-    const wifi_promiscuous_pkt_t *p=buf;unsigned n=p->rx_ctrl.dump_len;
-    unsigned h=header_length(p->payload,n);if(!h) return;
-    bool up=same(p->payload+10,target)&&same(p->payload+4,ap);
-    bool down=same(p->payload+10,ap)&&same(p->payload+4,target);
-    if(!up&&!down) return; // Both directions of our exact STA/AP pair, no other clients.
+    if(kind==WIFI_PKT_DATA)atomic_fetch_add(&prom_data_all,1);
+    else if(kind==WIFI_PKT_MGMT)atomic_fetch_add(&prom_mgmt_all,1);
+    else if(kind==WIFI_PKT_CTRL)atomic_fetch_add(&prom_ctrl_all,1);
+    else atomic_fetch_add(&prom_misc_all,1);
+    if(!buf || kind!=WIFI_PKT_DATA) return; // Others count only, never dereference misc.
+    const wifi_promiscuous_pkt_t *p=buf;wifi_pkt_rx_ctrl_t meta=p->rx_ctrl;unsigned n=meta.dump_len;
+    if(n<24) return;
+    uint8_t snapshot[24];memcpy(snapshot,p->payload,24);
+    unsigned h=header_length(snapshot,n);if(!h) return;
+    bool up=same(snapshot+10,target)&&same(snapshot+4,ap);
+    bool down=same(snapshot+10,ap)&&same(snapshot+4,target);
+    if(!up&&!down) return;
+    atomic_fetch_add(&pair_seen,1);
+    bool ep=is_eapol(p->payload,n,h);
+    if(!up && !ep)return; // Only uplink Data or positively identified pair EAPOL.
     atomic_fetch_add(&pair_frames,1);
-    bool ep=is_eapol(p->payload,n,h);if(ep)atomic_fetch_add(&eapol_frames,1);
+    if(up)atomic_fetch_add(&uplink_data_cb,1);else atomic_fetch_add(&downlink_eapol_cb,1);
+    if(ep)atomic_fetch_add(&eapol_frames,1);
     event_t *e=take();if(!e){atomic_fetch_add(&raw_drop,1);return;}
-    common(e,RAW,&p->rx_ctrl,p->payload);
+    common(e,RAW,&meta,snapshot);
     unsigned copy=n>CAP?CAP:n;
     put16(e->header+32,FCS_ABSENT|(n>CAP?TRUNCATED:0)|(ep?EAPOL:0)|(up?UPLINK:0));
     put16(e->header+34,n);put16(e->header+36,copy);
     if(n>CAP)atomic_fetch_add(&raw_truncated,1);
     // IDF5.5.5 C5 dump_len explicitly excludes FCS. Never read sig_len bytes here.
-    memcpy(e->data,p->payload,copy);enqueue(e);
+    memcpy(e->data,p->payload,copy);
+    bool raw_up=same(e->data+10,target)&&same(e->data+4,ap);
+    bool raw_down=same(e->data+10,ap)&&same(e->data+4,target)&&is_eapol(e->data,copy,header_length(e->data,copy));
+    if(!raw_up&&!raw_down){atomic_fetch_add(&raw_scope_changed,1);configASSERT(xQueueSend(free_slots,&e,0)==pdTRUE);return;}
+    enqueue(e);
 }
 static void csi_cb(void *ctx,wifi_csi_info_t *p) {
     (void)ctx;atomic_fetch_add(&csi_total,1);
-    if(!p||!p->buf||!p->len){atomic_fetch_add(&csi_empty,1);return;}
+    if(!p){atomic_fetch_add(&csi_empty,1);return;}
+    wifi_pkt_rx_ctrl_t meta=p->rx_ctrl;
+    uint8_t snapshot[24];if(!p->hdr||meta.dump_len<24)return;memcpy(snapshot,p->hdr,24);
     if(!same(p->mac,target))return;
-    if(!p->hdr || p->rx_ctrl.dump_len<24 || !header_length(p->hdr,p->rx_ctrl.dump_len))return;
-    if(!same(p->hdr+10,target)){atomic_fetch_add(&hdr_conflict,1);return;}
-    if(!same(p->hdr+4,ap))return;
+    atomic_fetch_add(&csi_source_cb,1);
+    if(!p->buf||!p->len){atomic_fetch_add(&csi_empty,1);return;}
+    if(!header_length(snapshot,meta.dump_len))return;
+    if(!same(snapshot+10,target)){atomic_fetch_add(&hdr_conflict,1);return;}
+    if(!same(snapshot+4,ap))return;
     if(!p->rx_ctrl.rx_channel_estimate_info_vld || p->rx_ctrl.rx_state!=0)return;
     atomic_fetch_add(&target_csi,1);
     event_t *e=take();if(!e){atomic_fetch_add(&csi_drop,1);return;}
-    common(e,CSI,&p->rx_ctrl,p->hdr);unsigned n=p->len,copy=n>CSI_CAP?CSI_CAP:n;
+    common(e,CSI,&meta,snapshot);unsigned n=p->len,copy=n>CSI_CAP?CSI_CAP:n;
     put16(e->header+32,UPLINK|(n>CSI_CAP?TRUNCATED:0));put16(e->header+34,n);put16(e->header+36,copy);
     memcpy(e->header+52,p->mac,6);put16(e->header+58,p->rx_seq);
     e->header[60]=p->rx_ctrl.rx_channel_estimate_info_vld;e->header[61]=p->first_word_invalid;
@@ -133,7 +156,7 @@ static void emit(event_t *e) {
 #define U(x) ((unsigned)atomic_load(&(x)))
 static void control(unsigned kind) {
     static event_t e;memset(e.header,0,HDR);memcpy(e.header,"CS7R",4);e.header[4]=1;e.header[5]=kind;put16(e.header+6,HDR);
-    int n=snprintf((char*)e.data,CAP,"{\"prom_total\":%u,\"pair_frames\":%u,\"eapol_frames\":%u,\"csi_total\":%u,\"target_csi\":%u,\"raw_drop\":%u,\"csi_drop\":%u,\"raw_enqueued\":%u,\"csi_enqueued\":%u,\"raw_output\":%u,\"csi_output\":%u,\"raw_truncated\":%u,\"csi_truncated\":%u,\"csi_empty\":%u,\"hdr_conflict\":%u,\"high_water\":%u,\"write_errors\":%u,\"wire_bytes_before_control\":%u,\"free_heap\":%u,\"min_free_heap\":%u,\"channel\":%u,\"queue_depth\":%u,\"target\":\"" MACSTR "\",\"ap\":\"" MACSTR "\"}",U(prom_total),U(pair_frames),U(eapol_frames),U(csi_total),U(target_csi),U(raw_drop),U(csi_drop),U(raw_enqueued),U(csi_enqueued),U(raw_output),U(csi_output),U(raw_truncated),U(csi_truncated),U(csi_empty),U(hdr_conflict),U(high_water),U(write_errors),U(wire_bytes),(unsigned)esp_get_free_heap_size(),(unsigned)esp_get_minimum_free_heap_size(),channel,DEPTH,MAC2STR(target),MAC2STR(ap));
+    int n=snprintf((char*)e.data,CAP,"{\"prom_total\":%u,\"prom_data_all\":%u,\"prom_mgmt_all\":%u,\"prom_ctrl_all\":%u,\"prom_misc_all\":%u,\"pair_seen\":%u,\"raw_scope_changed\":%u,\"uplink_data_cb\":%u,\"downlink_eapol_cb\":%u,\"csi_source_cb\":%u,\"pair_frames\":%u,\"eapol_frames\":%u,\"csi_total\":%u,\"target_csi\":%u,\"raw_drop\":%u,\"csi_drop\":%u,\"raw_enqueued\":%u,\"csi_enqueued\":%u,\"raw_output\":%u,\"csi_output\":%u,\"raw_truncated\":%u,\"csi_truncated\":%u,\"csi_empty\":%u,\"hdr_conflict\":%u,\"high_water\":%u,\"write_errors\":%u,\"wire_bytes_before_control\":%u,\"free_heap\":%u,\"min_free_heap\":%u,\"channel\":%u,\"queue_depth\":%u,\"mode\":\"NULL\",\"raw_scope\":\"uplink_data_and_clear_pair_eapol\",\"target\":\"" MACSTR "\",\"ap\":\"" MACSTR "\"}",U(prom_total),U(prom_data_all),U(prom_mgmt_all),U(prom_ctrl_all),U(prom_misc_all),U(pair_seen),U(raw_scope_changed),U(uplink_data_cb),U(downlink_eapol_cb),U(csi_source_cb),U(pair_frames),U(eapol_frames),U(csi_total),U(target_csi),U(raw_drop),U(csi_drop),U(raw_enqueued),U(csi_enqueued),U(raw_output),U(csi_output),U(raw_truncated),U(csi_truncated),U(csi_empty),U(hdr_conflict),U(high_water),U(write_errors),U(wire_bytes),(unsigned)esp_get_free_heap_size(),(unsigned)esp_get_minimum_free_heap_size(),channel,DEPTH,MAC2STR(target),MAC2STR(ap));
     configASSERT(n>0 && n<CAP);put16(e.header+34,n);put16(e.header+36,n);put64(e.header+16,esp_timer_get_time());emit(&e);
 }
 static void output_task(void *arg) {
@@ -147,7 +170,7 @@ static void output_task(void *arg) {
 void app_main(void) {
     esp_log_level_set("*",ESP_LOG_NONE);setvbuf(stdout,NULL,_IONBF,0);
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0,2048,16384,0,NULL,0));esp_vfs_dev_uart_use_driver(UART_NUM_0);
-    printf("{\"event\":\"READY\",\"version\":\"sniffer-7-raw-binary\",\"wire_header\":62,\"raw_cap\":4096,\"csi_cap\":2048}\n");
+    printf("{\"event\":\"READY\",\"version\":\"sniffer-7b-raw-snapshot\",\"wire_header\":62,\"raw_cap\":4096,\"csi_cap\":2048}\n");
     char line[160];unsigned ch,m[6],a[6];
     for(;;){
         if(fgets(line,sizeof(line),stdin)&&sscanf(line,"CFG,%u,%x:%x:%x:%x:%x:%x,%x:%x:%x:%x:%x:%x",&ch,&m[0],&m[1],&m[2],&m[3],&m[4],&m[5],&a[0],&a[1],&a[2],&a[3],&a[4],&a[5])==13&&ch>0&&ch<200){
@@ -160,10 +183,14 @@ void app_main(void) {
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_NULL));
     ESP_ERROR_CHECK(esp_wifi_set_country_code("CN",false));ESP_ERROR_CHECK(esp_wifi_start());
     ESP_ERROR_CHECK(esp_wifi_set_band_mode(channel>14?WIFI_BAND_MODE_5G_ONLY:WIFI_BAND_MODE_2G_ONLY));ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+    pool=calloc(DEPTH,sizeof(event_t));configASSERT(pool); // Allocate after Wi-Fi transient init peak.
     free_slots=xQueueCreate(DEPTH,sizeof(event_t*));events=xQueueCreate(DEPTH,sizeof(event_t*));configASSERT(free_slots&&events);
     for(unsigned i=0;i<DEPTH;i++){event_t *e=&pool[i];configASSERT(xQueueSend(free_slots,&e,0)==pdTRUE);}
-    wifi_promiscuous_filter_t filter={.filter_mask=WIFI_PROMIS_FILTER_MASK_DATA};ESP_ERROR_CHECK(esp_wifi_set_promiscuous_filter(&filter));
+    wifi_promiscuous_filter_t filter={.filter_mask=WIFI_PROMIS_FILTER_MASK_MGMT|WIFI_PROMIS_FILTER_MASK_CTRL|WIFI_PROMIS_FILTER_MASK_DATA|WIFI_PROMIS_FILTER_MASK_MISC};ESP_ERROR_CHECK(esp_wifi_set_promiscuous_filter(&filter));
     ESP_ERROR_CHECK(esp_wifi_set_promiscuous_rx_cb(prom_cb));ESP_ERROR_CHECK(esp_wifi_set_channel(channel,WIFI_SECOND_CHAN_NONE));
+    uint8_t actual=0;wifi_second_chan_t second;wifi_mode_t mode;
+    ESP_ERROR_CHECK(esp_wifi_get_channel(&actual,&second));ESP_ERROR_CHECK(esp_wifi_get_mode(&mode));
+    configASSERT(actual==channel && mode==WIFI_MODE_NULL);
     wifi_csi_config_t csi={.enable=1,.acquire_csi_legacy=1,.acquire_csi_force_lltf=0,.acquire_csi_ht20=1,.acquire_csi_ht40=1,.acquire_csi_vht=1,.acquire_csi_su=1,.acquire_csi_mu=1,.acquire_csi_dcm=1,.acquire_csi_beamformed=1,.acquire_csi_he_stbc_mode=2,.val_scale_cfg=0,.dump_ack_en=0,.lltf_bit_mode=0};
     ESP_ERROR_CHECK(esp_wifi_set_csi_config(&csi));ESP_ERROR_CHECK(esp_wifi_set_csi_rx_cb(csi_cb,NULL));
     TaskHandle_t task=NULL;configASSERT(xTaskCreate(output_task,"raw_uart",6144,NULL,5,&task)==pdPASS);

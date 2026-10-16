@@ -1,38 +1,29 @@
 # CSI调研与实机验证
 
-## 最新：HT20业务关联与raw7离线准备（2026-10-16）
+更新：2026-10-16。当前主线是HT20下业务packet_id↔FRAME↔CSI关联，VHT20/5GHz/TX参数及传感器后置。
 
-当前驱动状态已核对为HT20；wpa_cli实际WPA2-PSK、单播CCMP/组播TKIP。旧FRAME只有元数据、没有密文或握手，不能直接生成可解密pcap。独立sniffer7 binary候选已构建、9项离线测试和tshark合成PCAP/官方WPA2样本验证通过，**未烧录、未重关联、未发新UDP**；设备仍最后验证的v6c。
+## 最新Gate A：未通过并停止
 
-当前优先HT20 raw Data+EAPOL→PC离线解密→packet_id关联，暂停VHT20/5GHz/TX参数。现场实验必须等用户再次确认和安全管理回退。[正式计划](HT主方案与WPA2业务关联计划_2026-10-16.md)、[raw7源码与工具](ESP32测试/sniffer_7_raw/README.md)。
+- 当前已烧录/READY版本为sniffer-7b-raw-snapshot；设备已STOP/FINAL，COM释放，新增SSH退出。Jetson仍信道2/驱动HT20、原MAC/IP/route/TX参数，网络/驱动/服务/AP未改。
+- 最终30.025601秒：目标上行RAW callback1611，入队/输出/host1462，queue drop149；有效目标CSI callback2676，入队/输出/host2634，drop42。
+- UART写错误、binary CRC/序号/resync/半record/头部冲突、empty/truncation均0；计数可闭合，但完整Gate未过。
+- 真实PCAP可生成，1458/1460 Protected行由tshark识别CCMP；严格timestamp+TA+FC+seq_ctrl匹配0、raw dump/sig尾长解释未确认，不能声称完整MPDU/MIC已验证或业务ID已关联。
+- v7a首轮RAW437/436/drop1、CSI2600全落盘；v7b入口快照/池扩大未解决关联和队列问题。不要盲扩pool，最新历史最低heap12B。
+- 本轮没有主动UDP、重关联、主动握手或现场解密。自然出现EAPOL只保留本地，不代表完整4-way。下一步先离线诊断，等待用户确认修正版Gate A。
 
+## 已完成历史与边界
 
-更新：2026-10-16。公开副本由本地白名单生成，现场标识匿名；原始数据/完整日志/Agent配置仅本地。
+Router baseline、Jetson旁路legacy/HT CSI有实证。v6c元数据+CSI窗口曾零drop且UDP100/100、406HT唯一配对；它不等于新raw方案也能匹配。物理实验RunA碰线失效，动态响应有支持，静态遮挡重复性不足；不声称完整校准。
 
-## 当前结果
-
-- Router baseline已通过，不重复；Jetson旁路legacy Data+CSI、HT Data+HTCSI均有实机正证据，VHT20未验证。
-- 最新v6c导出优化：紧凑JSON、bulk UART、TX ring16KB、事件队列64，波特率921600；CSI原始字节/无线采集配置保持。
-- 30.062秒sanity：224FRAME/165有效HTCSI/165唯一HT匹配；60.015秒主动窗口：100/100 UDP、550FRAME/406HTCSI/406唯一HT匹配。两轮本地drop/解析/write error/empty/truncated均0，回调到落盘闭合。
-- 100UDP是48B/5pps；CSI含背景流量，Protected CSI406/406、业务ID关联仍0；不能解释为100包各自已配CSI或无线捕获率。
-- v6/v6b失败轮次完整保留，最终窗口负载低于旧高压，不承诺全部负载零丢；ARMED可用heap30164B（任务创建前），长期压力未验。
-- 当前Jetson仍2.4GHz/信道2，tx_bw_mode原0x21未写；eth0/网络/ROS/Mihomo/服务未改。新增SSH/UDP receiver结束、COM释放、ESP已STOP/FINAL。
-- 当前源码/build/app烧录/READY均sniffer-6c-compact-uart。旧v3/v4/v5仅对应历史数据；旧capture_packet_id用于v5，新版用capture_compact_uart。
-- 物理验证RunA碰线失效；动态响应有支持，静态遮挡重复性不足。legacy106 mode0为12bit，HT114不复用其IQ解释。
+当前安全方式上次只读为WPA2-PSK/单播CCMP/组播TKIP；旧v5/v6c缺raw密文/EAPOL，不能解密。Wireshark4.6.9工具链和官方WPA2样本仅离线验证过，未现场解密。
 
 ## 阅读入口
 
-- [最新HT导出与主动UDP报告](ESP32测试/结果/c5_uart_optimization_20261016_124122/HT_UART优化与主动UDP结果.md)、[汇总](ESP32测试/结果/c5_uart_optimization_20261016_124122/summary.json)、[版本](ESP32测试/结果/c5_uart_optimization_20261016_124122/manifest.json)
-- [当前固件](ESP32测试/sniffer_jetson/main/sniffer.c)、[v6c采集](ESP32测试/sniffer_jetson/capture_compact_uart.py)、[导出审计](ESP32测试/sniffer_jetson/audit_compact_export.py)、[协议解析](ESP32测试/sniffer_jetson/compact_uart.py)
-- [实验计划](CSI下一阶段实验计划单_修订版_2026-10-15.md)、[只读预检](Jetson_VHT20只读预检结果_2026-10-16.md)、[TX限宽与SSH风险](Jetson_VHT20可行性与SSH风险核验_2026-10-15.md)
-- [旧HT拥塞结果](ESP32测试/结果/c5_ht_control_20261016_122842/HT_PHY对照结果.md)、[物理验证](ESP32测试/结果/c5_csi_physical_validation_20261015/CSI物理合理性验证报告.md)
-- [ESP方案](ESP32_CSI测试方案.md)、[Pi方案](树莓派4B_Nexmon_CSI测试方案.md)、[三路线](CSI当前路线与PoC验证.md)、[关联方案](数据传输与CSI关联方案.md)
-- [更新记录](更新记录.md)、[历史归档](../归档/README.md)
+- [Gate A实机失败报告](ESP32测试/结果/c5_sniffer7_raw_sanity_20261016_132154/sniffer7_GateA结果.md)
+- [当前HT主方案与WPA2计划](HT主方案与WPA2业务关联计划_2026-10-16.md)
+- [raw7源码与工具](ESP32测试/sniffer_7_raw/README.md)
+- [v6c HT导出与UDP历史结果](ESP32测试/结果/c5_uart_optimization_20261016_124122/HT_UART优化与主动UDP结果.md)
+- [ESP方案](ESP32_CSI测试方案.md)、[Pi方案](树莓派4B_Nexmon_CSI测试方案.md)、[路线](CSI当前路线与PoC验证.md)
+- [更新记录](更新记录.md)
 
-## 下一步与边界
-
-当前顺序以顶部最新HT20业务关联计划为准；下列已完成结果属于v6c历史验证。VHT20/5GHz/TX参数、ESP AP和传感器暂时后置。
-
-路线为ESP32-C5/esp-csi、Pi4B Nexmon CSI、AX210+x86 Linux/PicoScenes；Pi未部署，PicoScenes不在ARM/WSL安装。Atheros历史备用，FeitCSI退出主方案。
-
-公开本人源码、脱敏摘要、历史安全图；密码、带凭据配置、sdkconfig、固件/Flash、raw串口/SSH/业务日志不上传。不宣称一UDP=一Wi-Fi帧=一CSI。
+ESP32-C5/esp-csi当前实机，Pi4B/Nexmon和AX210+x86 Linux/PicoScenes后置；Atheros历史备用、FeitCSI退出主路线。禁止一UDP=一帧=一CSI假设。发布自有代码和匿名统计，raw Protected/EAPOL/PCAP/PSK/原Flash/Agent配置仅本地。

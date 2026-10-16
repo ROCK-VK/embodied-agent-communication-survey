@@ -1,0 +1,30 @@
+{
+  "version": "sniffer-7b-raw-snapshot",
+  "idf": "5.5.5",
+  "target": "esp32c5",
+  "app_size": 900048,
+  "app_address": "0x10000",
+  "partition_size": 1048576,
+  "flashed": true,
+  "offline_unit_tests": 11,
+  "queue_depth": 32,
+  "pool_allocated_after_wifi_start": true,
+  "files": {
+    "sniffer.c": "cc099f86757266ae1e9121bf4cd43f7fc3d5d0780f40e65ce9b12f4c64685663",
+    "sniffer_7_raw.bin": "585bde560335c8fafdfe37b3769bdcde313c4ed55e321980c9940e4cbdef941d",
+    "sniffer_7_raw.elf": "d9caf1941b83342c5097615fc2ea56b00a2ea26b55b34a8a71c0ff7b38a32f62"
+  },
+  "flash": "app-only0x10000 hash verified",
+  "runtime": "READY sniffer-7b-raw-snapshot; boot ELF matches; STOP/FINAL received, COM released",
+  "gate_a_passed": false,
+  "host_scripts": {
+    "associate_ids.py": "ad76b0b640c0f7e82413940c6e4674633df70a5404dee89c3de09a8ae31acf68",
+    "audit_gate_a.py": "a75fd55512eb94a700ce1f343bf37d13cfa6073fde7e20a3203f7b53fffe632c",
+    "capture_raw7.py": "aeec3a587fb9393bb3c1b354ce7487a45a63bc5b8fa85b22e634438c278dcc9a",
+    "convert_raw7.py": "a4e274f0b8d65a63aa1da0d13f21493c6ded7c80dc414954aadccc3ab3081ed2",
+    "extract_tshark_ids.py": "13af435fd63801ffafa95d994a24bafc41a5a7f3b5b3b8559e6eabf309258a80",
+    "raw7.py": "638bb9c4a888639897663b0a0cf65fdaa972351098043578eaa816d640dc22d9",
+    "test_raw7.py": "32dcd32a96b1380386d5edea7c55cd805f4129c90b2cc8fafbedf3cebb644035",
+    "udp_probe_protocol.py": "728f9203eaee51b767b4ce8c14b61130bd79017462bed0d1cad34fb0eab02d8e"
+  }
+}

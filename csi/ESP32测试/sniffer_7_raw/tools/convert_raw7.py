@@ -12,7 +12,7 @@ def convert(source, out):
         while data:=f.read(65536):rows.extend(d.feed(data))
     audit=d.finish()
     # Offline conversion must not invent host timestamps or silently ignore transport damage.
-    bad=any(audit.get(k,0) for k in ('discarded_bytes','bad_header','crc_error','serial_discontinuity','incomplete_bytes'))
+    bad=any(audit.get(k,0) for k in ('discarded_bytes','bad_header','crc_error','serial_discontinuity','incomplete_bytes','raw_metadata_conflict'))
     # Capture companion timing file maps every serial to host wall and monotonic time.
     timing=source.with_suffix(source.suffix+'.times.jsonl')
     if timing.exists():

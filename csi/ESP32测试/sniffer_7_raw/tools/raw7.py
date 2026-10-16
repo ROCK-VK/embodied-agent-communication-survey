@@ -62,7 +62,8 @@ class Decoder:
                 if kind==RAW:
                     r['mac_header']=parse_header(payload)
                     if r['mac_header']['fc']!=fc or r['mac_header']['seq_ctrl']!=seq or r['mac_header']['ta']!=r['ta'] or r['mac_header']['ra']!=r['ra']:
-                        raise ValueError('raw/header metadata conflict')
+                        r['raw_metadata_conflict']=True
+                        self.counts['raw_metadata_conflict']+=1
             else:
                 r['counters']=json.loads(payload)
             out.append(r)

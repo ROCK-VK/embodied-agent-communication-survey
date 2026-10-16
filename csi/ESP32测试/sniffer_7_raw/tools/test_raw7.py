@@ -103,5 +103,22 @@ class RawTests(unittest.TestCase):
         self.assertEqual(len(out),1);self.assertEqual(len(out[0]['candidate_csi']),2)
         self.assertEqual(out[0]['packet_id'],37)
 
+    def test_ccmp_layout_bounds(self):
+        from audit_gate_a import ccmp_layout
+        raw=synthetic_frame(0x4188,body=bytes.fromhex('0102002003040506')+bytes(30)+bytes(8))
+        r=dict(raw_hex=raw.hex(),mac_header=parse_header(raw))
+        x=ccmp_layout(r)
+        self.assertEqual(x['pn'],0x060504030201)
+        self.assertEqual(x['encrypted_payload_len'],30)
+        self.assertFalse(x['tag_cryptographically_verified'])
+        raw=synthetic_frame(0x4188,body=bytes(15))
+        self.assertIsNone(ccmp_layout(dict(raw_hex=raw.hex(),mac_header=parse_header(raw))))
+
+    def test_raw_metadata_conflict_preserved_as_failure(self):
+        d=Decoder();r=d.feed(encode(RAW,synthetic_frame(),serial=1,fc=0x0188,seq_ctrl=0x1220,ta=TA,ra=AP))
+        self.assertTrue(r[0]['raw_metadata_conflict'])
+        self.assertEqual(d.counts['raw_metadata_conflict'],1)
+        self.assertEqual(bytes.fromhex(r[0]['raw_hex']),synthetic_frame())
+
 
 if __name__=='__main__':unittest.main()
