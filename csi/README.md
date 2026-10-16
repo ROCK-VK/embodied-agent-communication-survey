@@ -1,11 +1,14 @@
 # CSI调研与实机验证
 
-> **最新准备：** 已完成WPA2最小PoC只读门禁与离线A2审计；13条显示差异对应Wireshark TKIP启发式，tag仍未认证。工具准备/16项离线回归通过；尚未重关联/发20包/现场解密，等待用户明确确认现场回退。[执行前审计](ESP32测试/结果/c5_wpa2_packetid_poc_20261016_140730/WPA2_PoC执行前审计.md)。
+> **最新实机：F类资源门禁停止。** 用户已确认回退，但重关联命令发送前ESP出现357有效callback/174落盘/drop183，自动STOP/FINAL；未重关联、发20包或现场解密。8b原30秒零drop只适用于历史窗口；先处理大帧/突发导出，不进入JPEG。[本次结果](ESP32测试/结果/c5_wpa2_packetid_poc_20261016_140730/WPA2_PoC第1次执行结果.md)。
+
+
+> **此前准备（历史）：** 已完成WPA2最小PoC只读门禁与离线A2审计；13条显示差异对应Wireshark TKIP启发式，tag仍未认证。工具准备/16项离线回归通过；尚未重关联/发20包/现场解密，等待用户明确确认现场回退。[执行前审计](ESP32测试/结果/c5_wpa2_packetid_poc_20261016_140730/WPA2_PoC执行前审计.md)。
 
 
 更新：2026-10-16。当前主线是HT20下业务packet_id与CSI关联，最新采用CSI-centric同回调记录。
 
-## 最新结果：Gate A1通过，A2尚未证明
+## 历史30秒窗口：Gate A1通过，A2尚未证明
 
 当前板`sniffer-8b-csi-centric`已STOP/FINAL，串口关闭，新增SSH退出；Jetson/AP/网络/驱动/服务未修改。30秒背景窗口3913有效目标CSI callback=3913原子记录，queue drop0，串口CRC/序号/截断错误0，最低free heap65060B。
 

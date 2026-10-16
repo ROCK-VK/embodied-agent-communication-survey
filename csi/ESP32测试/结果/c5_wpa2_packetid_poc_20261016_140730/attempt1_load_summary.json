@@ -1,0 +1,26 @@
+{
+  "duration_esp_s": 1.64155,
+  "host_duration_s": 1.797,
+  "atomic_wire_bytes": 164642,
+  "atomic_wire_size_mean": 946.2183908045977,
+  "atomic_wire_size_max": 1844,
+  "payload_lengths": {
+    "1554": 64,
+    "272": 1,
+    "103": 56,
+    "106": 25,
+    "114": 9,
+    "118": 12,
+    "250": 1,
+    "150": 1,
+    "142": 1,
+    "94": 1,
+    "1294": 2,
+    "370": 1
+  },
+  "stop_reason": "resource_gate",
+  "failure_class": "F",
+  "reassociation_executed": false,
+  "udp_executed": false,
+  "decryption_executed": false
+}

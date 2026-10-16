@@ -1,0 +1,38 @@
+{
+  "firmware": "sniffer-8b-csi-centric",
+  "firmware_changed": false,
+  "ready": {
+    "event": "READY",
+    "version": "sniffer-8b-csi-centric",
+    "rx_ctrl_size": 64,
+    "prom_payload_offset": 64,
+    "csi_struct_size": 100,
+    "csi_hdr_offset": 88,
+    "csi_payload_offset": 92,
+    "csi_payload_len_offset": 96,
+    "csi_rx_seq_offset": 98,
+    "sig_first_byte": 56,
+    "dump_first_byte": 58,
+    "mac_version": 3,
+    "target_esp32c5": 1
+  },
+  "final_received": true,
+  "stop_reason": "resource_gate",
+  "firmware_files": {
+    "sniffer.c": "2a8ca124e4314a44ad7dd0e31f482d606fb968cf22b7206c798310c2b9c083fb",
+    "sniffer_8_csi.bin": "b70a19f0cb041f8c3f96e8470a44f3ce4377fbf94b806196f31df3d6fdead776",
+    "sniffer_8_csi.elf": "ad7fd905916798f920ea85d41b47b1da60bdffa859c17b2b8c5aa19206b0d30e"
+  },
+  "host_tools_sha256": {
+    "analyze8.py": "d7c5d047f513118965e031b0570f1fbfbfc9f90c29059c6f8089550a6bcdab5c",
+    "audit_a2_8.py": "cf59f7d6171515da3b074f8fd75beb3686e40293f47994fe0355cf1d68ffec03",
+    "capture8.py": "b836f89fb635a9bd361259b434525121516fd2f7c6bb4d09e723ca2957cf6e93",
+    "decrypt_probe8.py": "98ccb090cb493eb39a9bbb9e6dcd9dc1513d2482d702db7deb10c515d4b7ba3e",
+    "test8.py": "82b0be6e843e4230acaa85ca7db113f15a0418928b3298a7e9ee29d82d6159d5",
+    "test_wpa2_gate8.py": "22b0c1aff7b3cba659ed17d6b7e2de8e8ceb9e0b1f213eab8cac89dc178a0231",
+    "udp_probe_protocol.py": "728f9203eaee51b767b4ce8c14b61130bd79017462bed0d1cad34fb0eab02d8e",
+    "wire8.py": "3cc13821b066cab716af909e9ee7bc3f65883157dc4347bc7eb13a371e648e76",
+    "wpa2_gate8.py": "21ef33388125168c7521ada5d02b4803cce14d651ae7fe7a25649318349b88be"
+  },
+  "runtime_elf_prefix_matches": true
+}
