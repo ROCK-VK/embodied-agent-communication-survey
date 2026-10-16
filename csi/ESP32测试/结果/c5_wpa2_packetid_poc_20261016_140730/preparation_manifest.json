@@ -1,0 +1,36 @@
+{
+  "stage": "offline_audit_and_preparation_only_awaiting_explicit_reassociation_confirmation",
+  "firmware": "sniffer-8b-csi-centric",
+  "firmware_changed": false,
+  "ready": {
+    "event": "READY",
+    "version": "sniffer-8b-csi-centric",
+    "rx_ctrl_size": 64,
+    "prom_payload_offset": 64,
+    "csi_struct_size": 100,
+    "csi_hdr_offset": 88,
+    "csi_payload_offset": 92,
+    "csi_payload_len_offset": 96,
+    "csi_rx_seq_offset": 98,
+    "sig_first_byte": 56,
+    "dump_first_byte": 58,
+    "mac_version": 3,
+    "target_esp32c5": 1
+  },
+  "source_build_hashes_match_prior_manifest": true,
+  "prior_manifest": "c5_csi_centric8_20261016_134717/manifest.json",
+  "host_tools_sha256": {
+    "analyze8.py": "d7c5d047f513118965e031b0570f1fbfbfc9f90c29059c6f8089550a6bcdab5c",
+    "audit_a2_8.py": "cf59f7d6171515da3b074f8fd75beb3686e40293f47994fe0355cf1d68ffec03",
+    "capture8.py": "b836f89fb635a9bd361259b434525121516fd2f7c6bb4d09e723ca2957cf6e93",
+    "decrypt_probe8.py": "98ccb090cb493eb39a9bbb9e6dcd9dc1513d2482d702db7deb10c515d4b7ba3e",
+    "test8.py": "82b0be6e843e4230acaa85ca7db113f15a0418928b3298a7e9ee29d82d6159d5",
+    "test_wpa2_gate8.py": "22b0c1aff7b3cba659ed17d6b7e2de8e8ceb9e0b1f213eab8cac89dc178a0231",
+    "udp_probe_protocol.py": "728f9203eaee51b767b4ce8c14b61130bd79017462bed0d1cad34fb0eab02d8e",
+    "wire8.py": "3cc13821b066cab716af909e9ee7bc3f65883157dc4347bc7eb13a371e648e76",
+    "wpa2_gate8.py": "21ef33388125168c7521ada5d02b4803cce14d651ae7fe7a25649318349b88be"
+  },
+  "tests": "6 wire/PCAP + 10 handshake/association offline regressions passed",
+  "network_operations": "read-only SSH only; no reassociation or active UDP",
+  "serial_state": "READY checked; no CFG/ARM; port closed"
+}

@@ -16,6 +16,7 @@ def main():
     p.add_argument('--port',default='COM10');p.add_argument('--channel',type=int,required=True)
     p.add_argument('--target',required=True);p.add_argument('--ap',required=True)
     p.add_argument('--duration',type=float,default=60);p.add_argument('--output',type=Path,required=True)
+    p.add_argument('--stop-file',type=Path,help='Local stop request; never a network control')
     a=p.parse_args()
     if not all(re.fullmatch(r'(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}',m) for m in (a.target,a.ap)) or not 1<=a.channel<=196 or a.duration<=0:p.error('invalid pair/channel/duration')
     a.output.mkdir(parents=True,exist_ok=False);d=Decoder();armed=False;final=None
@@ -28,9 +29,11 @@ def main():
             except (ValueError,UnicodeError):continue
             if r.get('event')=='READY':ready=r;break
         if not ready or ready.get('version')!='sniffer-8b-csi-centric':raise RuntimeError('CSI8 READY not found; no CFG sent')
-        s.write(f'CFG,{a.channel},{a.target},{a.ap}\n'.encode());deadline=time.monotonic()+30;stop_sent=False
+        s.write(f'CFG,{a.channel},{a.target},{a.ap}\n'.encode());deadline=time.monotonic()+30;stop_sent=False;stop_reason=None
         try:
             while True:
+                if armed and not stop_sent and a.stop_file and a.stop_file.exists():
+                    stop_reason='local_stop_file';s.write(b'STOP\n');stop_sent=True;deadline=time.monotonic()+30
                 if time.monotonic()>=deadline:
                     if armed and not stop_sent:
                         s.write(b'STOP\n');stop_sent=True;deadline=time.monotonic()+30
@@ -44,10 +47,17 @@ def main():
                         armed=True;deadline=time.monotonic()+a.duration
                         print('ARMED CSI8; no network reassociation is performed by this tool',flush=True)
                     if r['event']=='FINAL':final=r;break
+                    if r['event']=='STATS' and not stop_sent:
+                        c=r['counters']
+                        bad=any(c.get(k,0) for k in ('raw_drop','csi_drop','raw_truncated','csi_truncated','payload_truncated','payload_missing','csi_empty','write_errors','hdr_conflict'))
+                        if bad or c.get('min_free_heap',0)<16384:
+                            stop_reason='resource_gate';s.write(b'STOP\n');stop_sent=True;deadline=time.monotonic()+30
+                            print('Resource gate: STOP requested; do not send UDP',flush=True)
+                raw.flush();times.flush()
                 if final:break
         finally:
             if not final:s.write(b'STOP\n') # Best-effort stop on exceptions; lack of FINAL stays a failure.
-    result=dict(ready=ready,armed=armed,final=final,transport=d.finish(),gate_a_requires_separate_audit=True)
+    result=dict(ready=ready,armed=armed,final=final,transport=d.finish(),stop_reason=stop_reason,gate_a_requires_separate_audit=True)
     (a.output/'summary.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
     if not final:raise RuntimeError('missing FINAL; do not continue UDP/decryption')
 

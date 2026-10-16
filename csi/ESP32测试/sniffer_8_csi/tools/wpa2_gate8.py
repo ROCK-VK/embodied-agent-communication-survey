@@ -1,0 +1,114 @@
+"""Offline/live-snapshot CSI8 PCAP and strict pairwise WPA2 handshake audit.
+
+Never controls an interface or performs cryptography. All frame/nonce/MIC detail
+outputs are private evidence and must not be added to the public allowlist.
+"""
+import argparse, collections, hashlib, json, struct
+from pathlib import Path
+from wire8 import Decoder, assemble_api_parts, parse_header
+
+
+def read_stream(capture, live=False):
+    d=Decoder();rows=[]
+    with (capture/'stream.bin').open('rb') as f:
+        while b:=f.read(65536):rows.extend(d.feed(b))
+    health=d.finish()
+    # A growing file can end mid-record; never hide complete-record corruption.
+    errors=('bad_header','crc_error','discarded_bytes','serial_discontinuity','raw_metadata_conflict')
+    if any(health.get(k,0) for k in errors) or (not live and health.get('incomplete_bytes',0)):
+        raise ValueError('damaged transport: '+str(health))
+    text=(capture/'stream.bin.times.jsonl').read_text(encoding='utf-8')
+    if live and not text.endswith('\n'):text=text.rsplit('\n',1)[0]+'\n' if '\n' in text else ''
+    times={r['record_serial']:r for r in map(json.loads,text.splitlines())}
+    for r in rows:
+        if r['record_serial'] not in times:
+            if live:continue
+            raise ValueError('missing host timing')
+        r.update(times[r['record_serial']])
+    return [r for r in rows if 'host_time_ns' in r],health
+
+
+def parse_eapol(raw, target, ap):
+    h=parse_header(raw);ta=h['ta'];ra=h['ra']
+    if (ta,ra) not in ((target,ap),(ap,target)):raise ValueError('foreign pair')
+    if h['protected'] or h['fragment'] or h['more_fragments'] or h['amsdu']:
+        raise ValueError('not a complete clear unfragmented EAPOL MPDU')
+    b=raw[h['header_len']:]
+    if b[:8]!=bytes.fromhex('aaaa03000000888e'):raise ValueError('not LLC/SNAP EAPOL')
+    e=b[8:]
+    if len(e)<4 or e[1]!=3:raise ValueError('not EAPOL-Key')
+    n=int.from_bytes(e[2:4],'big')
+    if n<95 or len(e)<4+n:raise ValueError('truncated EAPOL-Key')
+    e=e[:4+n];info=int.from_bytes(e[5:7],'big');replay=int.from_bytes(e[9:17],'big')
+    nonce=e[17:49];mic=e[81:97];kd=int.from_bytes(e[97:99],'big')
+    if len(e)!=99+kd:raise ValueError('EAPOL key-data length mismatch')
+    pair=bool(info&8);ack=bool(info&0x80);hasmic=bool(info&0x100);secure=bool(info&0x200);install=bool(info&0x40)
+    msg=None
+    if pair and not info&(0x400|0x800|0x2000) and (info&7)==2 and e[4]==2:
+        if ta==ap and ack and not hasmic and not install and not secure and any(nonce) and not any(mic):msg=1
+        elif ta==target and not ack and hasmic and not secure and not install and any(nonce) and any(mic):msg=2
+        elif ta==ap and ack and hasmic and install and secure and any(nonce) and any(mic):msg=3
+        elif ta==target and not ack and hasmic and secure and not install and not any(nonce) and any(mic):msg=4
+    return dict(message=msg,key_info=info,descriptor=e[4],descriptor_version=info&7,replay_counter=replay,
+                nonce=nonce.hex(),mic=mic.hex(),eapol_length=len(e),trailing_bytes=len(b)-8-len(e),
+                ta=ta,ra=ra,seq_ctrl=h['seq_ctrl'],retry=h['retry'])
+
+
+def handshake(records):
+    groups={n:[r for r in records if r['message']==n] for n in range(1,5)};chosen=None
+    # Require one coherent ordered exchange, not four messages from different sessions.
+    for m1 in groups[1]:
+        for m2 in groups[2]:
+            if not (m1['record_serial']<m2['record_serial'] and m1['replay_counter']==m2['replay_counter']):continue
+            for m3 in groups[3]:
+                if not (m2['record_serial']<m3['record_serial'] and m3['replay_counter']>m1['replay_counter'] and m3['nonce']==m1['nonce']):continue
+                for m4 in groups[4]:
+                    if m3['record_serial']<m4['record_serial'] and m3['replay_counter']==m4['replay_counter']:
+                        chosen=[m['record_serial'] for m in (m1,m2,m3,m4)];break
+                if chosen:break
+            if chosen:break
+        if chosen:break
+    return dict(messages={str(k):len(v) for k,v in groups.items()},complete_four_way=chosen is not None,
+                coherent_record_serials=chosen,mic_verification='not performed; classification only')
+
+
+def convert(capture,out,target,ap,live=False):
+    out.mkdir(parents=True,exist_ok=False);rows,transport=read_stream(capture,live)
+    frames=[];eapol=[];rejected=[]
+    for r in rows:
+        if r['event'] not in ('CSI_DATA','RAW'):continue
+        if r['truncated']:raise ValueError('truncated frame/CSI record')
+        if r['event']=='CSI_DATA':raw=assemble_api_parts(r)
+        else:
+            raw=bytes.fromhex(r['raw_hex'])
+            try:e=parse_eapol(raw,target,ap)
+            except ValueError as exc:
+                rejected.append(dict(record_serial=r['record_serial'],reason=str(exc)));continue
+            e['record_serial']=r['record_serial'];eapol.append(e)
+        frames.append((r,raw))
+    index=[]
+    with (out/'combined_private.pcap').open('xb') as f:
+        f.write(struct.pack('<IHHIIII',0xa1b23c4d,2,4,0,0,8192,127))
+        for num,(r,raw) in enumerate(frames,1):
+            ch=r['channel'];freq=2407+5*ch if ch<=13 else 5000+5*ch
+            # Radiotap flags zero: no assertion that FCS is present or absent in API bytes.
+            rt=struct.pack('<BBHIBxHHb',0,0,15,0x2a,0,freq,0x80 if ch<=14 else 0x100,r['rssi'])
+            ns=r['host_time_ns'];packet=rt+raw
+            f.write(struct.pack('<IIII',ns//10**9,ns%10**9,len(packet),len(packet)));f.write(packet)
+            h=r['mac_header'];entry={k:r[k] for k in ('record_serial','timestamp','seq_ctrl','format','rssi','event')}
+            entry.update(pcap_frame_number=num,retry=h['retry'],fragment=h['fragment'],more_fragments=h['more_fragments'],amsdu=h['amsdu'])
+            if r['event']=='CSI_DATA':entry.update(csi_len=r['csi_len'],csi_sha256=hashlib.sha256(bytes.fromhex(r['csi_hex'])).hexdigest(),valid=r['estimate_valid'],rx_state=r['rx_state'],first_word_invalid=r['first_word_invalid'])
+            index.append(entry)
+    result=dict(handshake=handshake(eapol),eapol_records=eapol,rejected_eapol=rejected,transport=transport,
+                atomic_records=sum(r['event']=='CSI_DATA' for r in rows),live_snapshot=live,
+                last_counters=next((r['counters'] for r in reversed(rows) if r['event'] in ('STATS','FINAL','ARMED')),None))
+    (out/'frame_index_private.json').write_text(json.dumps(index,indent=2),encoding='utf-8')
+    (out/'handshake_private.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
+    return result
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--capture',type=Path,required=True);p.add_argument('--output',type=Path,required=True)
+    p.add_argument('--target',required=True);p.add_argument('--ap',required=True);p.add_argument('--live',action='store_true');a=p.parse_args()
+    r=convert(a.capture,a.output,a.target.lower(),a.ap.lower(),a.live)
+    print(json.dumps(dict(handshake=r['handshake'],rejected_eapol=len(r['rejected_eapol']),atomic_records=r['atomic_records'])))

@@ -1,0 +1,37 @@
+{
+  "total": 3913,
+  "ccmp_display": 3900,
+  "tkip_display": 13,
+  "extiv_candidates": 3913,
+  "enough_tag8_candidates": 3913,
+  "unrecognized_count": 13,
+  "unrecognized_tkip_heuristic": 13,
+  "unrecognized_fragmented": 0,
+  "unrecognized_amsdu": 0,
+  "unrecognized_malformed": 0,
+  "unrecognized_subtypes": {
+    "8": 13
+  },
+  "union_lengths": {
+    "127": 3572,
+    "138": 16,
+    "130": 284,
+    "176": 1,
+    "118": 1,
+    "504": 2,
+    "188": 1,
+    "1318": 5,
+    "142": 14,
+    "490": 1,
+    "1154": 1,
+    "533": 1,
+    "162": 7,
+    "150": 1,
+    "183": 1,
+    "194": 2,
+    "1282": 1,
+    "154": 2
+  },
+  "gate_a2_passed": false,
+  "reason": "Length/ExtIV/PN availability is not tag authentication; real decryption pending approval gate"
+}
