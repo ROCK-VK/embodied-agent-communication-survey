@@ -1,0 +1,225 @@
+// Gate A: target uplink Data + pair EAPOL only; no ordinary downlink raw export.
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <stddef.h>
+#include <limits.h>
+#include <stdatomic.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+#include "esp_rom_crc.h"
+#include "esp_rom_sys.h"
+#include "esp_wifi.h"
+#include "esp_mac.h"
+#include "esp_event.h"
+#include "esp_netif.h"
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "esp_system.h"
+#include "nvs_flash.h"
+#include "driver/uart.h"
+#include "esp_vfs_dev.h"
+
+#define CAP 2048
+#define CSI_CAP 2048
+#define DEPTH 24
+#define HDR 62
+#define RAW 1
+#define CSI 6
+#define STATS 3
+#define ARMED 4
+#define FINAL 5
+#define FCS_ABSENT 1
+#define TRUNCATED 2
+#define EAPOL 4
+#define UPLINK 8
+typedef struct { uint8_t header[HDR]; uint8_t data[CAP]; } event_t;
+static event_t *pool;
+static QueueHandle_t free_slots, events;
+static uint8_t target[6], ap[6];
+static unsigned channel, serial_id;
+enum { MODE_STOP=0, MODE_HANDSHAKE=1, MODE_PROBE=2 };
+static atomic_bool synthetic_active;
+static atomic_uint capture_mode, mode_epoch;
+static atomic_uint target_csi_seen,candidate_seen,large_frame_filtered,filter_other,handshake_data_count;
+static atomic_uint synthetic_candidates,synthetic_large,synthetic_eapol;
+static SemaphoreHandle_t tx_mutex;
+static bool configured,synthetic_only,rf_capture_enabled;
+static unsigned synth_rate,synth_seconds;
+static const char *control_event="CONFIGURED";
+#define CANDIDATE_MAX 256
+static const char *mode_name(void){unsigned m=atomic_load(&capture_mode);return m==MODE_HANDSHAKE?"HANDSHAKE_ONLY":m==MODE_PROBE?"PROBE_CAPTURE":"STOP";}
+
+static atomic_uint prom_total, pair_frames, eapol_frames, csi_total, target_csi;
+static atomic_uint prom_data_all, prom_mgmt_all, prom_ctrl_all, prom_misc_all;
+static atomic_uint pair_seen, uplink_data_cb, downlink_eapol_cb, csi_source_cb;
+static atomic_uint payload_missing, payload_truncated, prom_dump_gt_sig, prom_dump_eq_sig;
+static atomic_uint raw_drop, csi_drop, raw_enqueued, csi_enqueued, raw_output, csi_output;
+static atomic_uint raw_truncated, csi_truncated, csi_empty, hdr_conflict, high_water, write_errors, wire_bytes;
+static uint16_t le16(const uint8_t *p) { return p[0] | (p[1]<<8); }
+static void put16(uint8_t *p, unsigned v) { p[0]=v; p[1]=v>>8; }
+static void put32(uint8_t *p, uint32_t v) { for(unsigned i=0;i<4;i++) p[i]=v>>(8*i); }
+static void put64(uint8_t *p, uint64_t v) { for(unsigned i=0;i<8;i++) p[i]=v>>(8*i); }
+static bool same(const uint8_t *a,const uint8_t *b) { return memcmp(a,b,6)==0; }
+static unsigned header_length(const uint8_t *p, unsigned n) {
+    if(n<24) return 0;
+    uint16_t fc=le16(p); if(((fc>>2)&3)!=2) return 0;
+    unsigned h=24;
+    if((fc&0x300)==0x300) h+=6;
+    if(fc&0x80) { h+=2; if(fc&0x8000) h+=4; }
+    return n>=h?h:0;
+}
+static bool is_eapol(const uint8_t *p,unsigned n,unsigned h) {
+    static const uint8_t llc[]={0xaa,0xaa,3,0,0,0,0x88,0x8e};
+    // Protected/A-MSDU/fragmented bodies are not guessed to be LLC; raw still retained.
+    uint16_t fc=le16(p);
+    if(fc&0x4000 || fc&0x400 || (le16(p+22)&15)) return false;
+    unsigned qos=24+(((fc&0x300)==0x300)?6:0);
+    if((fc&0x80) && (p[qos]&0x80)) return false;
+    return n>=h+8 && memcmp(p+h,llc,8)==0;
+}
+static event_t *take(void) {
+    event_t *e=NULL; if(xQueueReceive(free_slots,&e,0)!=pdTRUE) return NULL;
+    memset(e->header,0,HDR); return e;
+}
+static void common(event_t *e,unsigned kind,const wifi_pkt_rx_ctrl_t *m,const uint8_t *h) {
+    uint8_t *p=e->header;memcpy(p,"CS8R",4);p[4]=1;p[5]=kind;put16(p+6,HDR);
+    put32(p+12,m->timestamp);put64(p+16,esp_timer_get_time());
+    put16(p+24,le16(h));put16(p+26,le16(h+22));p[28]=m->channel;
+    p[29]=m->cur_bb_format;p[30]=(uint8_t)m->rssi;p[31]=m->rx_state;
+    put16(p+38,m->sig_len);memcpy(p+40,h+10,6);memcpy(p+46,h+4,6);
+}
+static void enqueue(event_t *e) {
+    // A free pool slot guarantees room in the equally sized pointer queue.
+    unsigned kind=e->header[5];
+    configASSERT(xQueueSend(events,&e,0)==pdTRUE);
+    if(kind==RAW) atomic_fetch_add(&raw_enqueued,1);else atomic_fetch_add(&csi_enqueued,1);
+    unsigned n=uxQueueMessagesWaiting(events),old=atomic_load(&high_water);
+    while(n>old && !atomic_compare_exchange_weak(&high_water,&old,n)) {}
+}
+static void prom_cb(void *buf,wifi_promiscuous_pkt_type_t kind) {
+    if(atomic_load(&capture_mode)==MODE_STOP)return;
+    atomic_fetch_add(&prom_total,1);
+    if(kind==WIFI_PKT_DATA)atomic_fetch_add(&prom_data_all,1);
+    else if(kind==WIFI_PKT_MGMT)atomic_fetch_add(&prom_mgmt_all,1);
+    else if(kind==WIFI_PKT_CTRL)atomic_fetch_add(&prom_ctrl_all,1);
+    else atomic_fetch_add(&prom_misc_all,1);
+    if(!buf||kind!=WIFI_PKT_DATA)return;
+    const wifi_promiscuous_pkt_t *p=buf;wifi_pkt_rx_ctrl_t meta=p->rx_ctrl;
+    if(meta.dump_len>meta.sig_len)atomic_fetch_add(&prom_dump_gt_sig,1);
+    if(meta.dump_len==meta.sig_len)atomic_fetch_add(&prom_dump_eq_sig,1);
+    unsigned n=meta.sig_len<meta.dump_len?meta.sig_len:meta.dump_len;
+    unsigned h=header_length(p->payload,n);if(!h)return;
+    bool up=same(p->payload+10,target)&&same(p->payload+4,ap);
+    bool down=same(p->payload+10,ap)&&same(p->payload+4,target);
+    if(!up&&!down)return;
+    atomic_fetch_add(&pair_seen,1);
+    if(!is_eapol(p->payload,n,h))return; // Only clear pair EAPOL, NEVER ordinary Data raw.
+    atomic_fetch_add(&pair_frames,1);atomic_fetch_add(&eapol_frames,1);
+    if(n>CAP){atomic_fetch_add(&raw_truncated,1);return;} // Explicit reject, never export partial EAPOL.
+    if(up)atomic_fetch_add(&uplink_data_cb,1);else atomic_fetch_add(&downlink_eapol_cb,1);
+    event_t *e=take();if(!e){atomic_fetch_add(&raw_drop,1);return;}
+    common(e,RAW,&meta,p->payload);unsigned copy=n>CAP?CAP:n;
+    put16(e->header+32,EAPOL|(up?UPLINK:0)|(copy<n?TRUNCATED:0)); // FCS semantics UNCONFIRMED.
+    put16(e->header+34,n);put16(e->header+36,copy);
+    if(copy<n)atomic_fetch_add(&raw_truncated,1);
+    memcpy(e->data,p->payload,copy);enqueue(e);
+}
+static void csi_cb(void *ctx,wifi_csi_info_t *p) {
+    (void)ctx;if(atomic_load(&capture_mode)==MODE_STOP)return;atomic_fetch_add(&csi_total,1);
+    if(!p){atomic_fetch_add(&csi_empty,1);return;}
+    if(!same(p->mac,target))return;
+    atomic_fetch_add(&csi_source_cb,1);
+    if(!p->buf||!p->len){atomic_fetch_add(&csi_empty,1);return;}
+    if(!p->hdr)return;
+    wifi_pkt_rx_ctrl_t meta=p->rx_ctrl;
+    uint8_t h24[24];memcpy(h24,p->hdr,24);
+    unsigned hl=header_length(h24,UINT16_MAX);if(!hl)return;
+    if(!same(h24+10,target)||!same(h24+4,ap)){atomic_fetch_add(&hdr_conflict,1);return;}
+    if(!meta.rx_channel_estimate_info_vld||meta.rx_state!=0)return;
+    atomic_fetch_add(&target_csi_seen,1);
+    if(atomic_load(&capture_mode)==MODE_HANDSHAKE){atomic_fetch_add(&handshake_data_count,1);return;}
+    if(!p->payload || !p->payload_len){atomic_fetch_add(&filter_other,1);return;}
+    if(p->payload_len>CANDIDATE_MAX){atomic_fetch_add(&large_frame_filtered,1);return;}
+    if(20+sizeof(meta)+hl+p->payload_len+p->len>CAP){atomic_fetch_add(&filter_other,1);return;}
+    atomic_fetch_add(&candidate_seen,1);
+    atomic_fetch_add(&target_csi,1);
+    event_t *e=take();if(!e){atomic_fetch_add(&csi_drop,1);return;}
+    unsigned origp=p->payload_len,origc=p->len;
+    unsigned base=20+sizeof(meta)+hl;
+    unsigned limit=CAP-base<CSI_CAP?CAP-base:CSI_CAP;
+    unsigned cc=origc>limit?limit:origc;
+    unsigned pc=origp>CAP-base-cc?CAP-base-cc:origp;
+    if(!p->payload&&origp){pc=0;atomic_fetch_add(&payload_missing,1);}
+    // All parts belong to this one callback. Never use a later callback to fill gaps.
+    memcpy(e->data+20+sizeof(meta),p->hdr,hl);
+    if(pc)memcpy(e->data+base,p->payload,pc);
+    memcpy(e->data+base+pc,p->buf,cc);
+    memcpy(e->data+20,&meta,sizeof(meta));
+    put16(e->data,hl);put16(e->data+2,origp);put16(e->data+4,pc);
+    put16(e->data+6,origc);put16(e->data+8,cc);put16(e->data+10,sizeof(meta));
+    put16(e->data+12,meta.sig_len);put16(e->data+14,meta.dump_len);
+    int64_t delta=(int64_t)(uintptr_t)p->payload-(int64_t)(uintptr_t)p->hdr;
+    put32(e->data+16,(delta>=INT32_MIN&&delta<=INT32_MAX)?(uint32_t)(int32_t)delta:0x80000000u);
+    common(e,CSI,&meta,h24);
+    if(origc!=cc)atomic_fetch_add(&csi_truncated,1);
+    if(origp!=pc)atomic_fetch_add(&payload_truncated,1);
+    unsigned copied=base+pc+cc;
+    unsigned original=base+origp+origc;
+    put16(e->header+32,UPLINK|((pc!=origp||cc!=origc)?TRUNCATED:0));
+    put16(e->header+34,original>UINT16_MAX?UINT16_MAX:original);put16(e->header+36,copied);
+    memcpy(e->header+52,p->mac,6);put16(e->header+58,p->rx_seq);
+    e->header[60]=meta.rx_channel_estimate_info_vld;e->header[61]=p->first_word_invalid;
+    enqueue(e);
+}
+static uint32_t crc32(const uint8_t*p,unsigned n){return esp_rom_crc32_le(0,p,n);}
+static void emit(event_t *e) {
+    xSemaphoreTakeRecursive(tx_mutex,portMAX_DELAY);
+    static uint8_t wire[HDR+CAP+4];unsigned n=le16(e->header+36);
+    if(synthetic_only)put16(e->header+32,le16(e->header+32)|16);
+    configASSERT(n<=CAP);put32(e->header+8,++serial_id);
+    memcpy(wire,e->header,HDR);memcpy(wire+HDR,e->data,n);put32(wire+HDR+n,crc32(wire,HDR+n));
+    unsigned total=HDR+n+4;int wrote=uart_write_bytes(UART_NUM_0,wire,total);
+    if(wrote>0)atomic_fetch_add(&wire_bytes,wrote);
+    if(wrote!=(int)total)atomic_fetch_add(&write_errors,1);
+    else if(e->header[5]==RAW)atomic_fetch_add(&raw_output,1);
+    else if(e->header[5]==CSI)atomic_fetch_add(&csi_output,1);
+    xSemaphoreGiveRecursive(tx_mutex);
+}
+#define U(x) ((unsigned)atomic_load(&(x)))
+
+static void control(unsigned kind){
+ xSemaphoreTakeRecursive(tx_mutex,portMAX_DELAY);
+ static event_t e;memset(e.header,0,HDR);memcpy(e.header,"CS8R",4);e.header[4]=1;e.header[5]=kind;put16(e.header+6,HDR);
+ int n=snprintf((char*)e.data,CAP,
+ "{\"event\":\"%s\",\"mode\":\"%s\",\"mode_epoch\":%u,\"counters_reset\":false,\"synthetic\":%s,\"rf_capture_enabled\":%s,"
+ "\"target_csi_seen\":%u,\"candidate_seen\":%u,\"candidate_enqueued\":%u,\"candidate_output\":%u,\"large_frame_filtered\":%u,\"filter_other\":%u,\"handshake_data_count\":%u,"
+ "\"queue_drop\":%u,\"csi_total\":%u,\"target_csi\":%u,\"raw_drop\":%u,\"csi_drop\":%u,\"raw_enqueued\":%u,\"csi_enqueued\":%u,\"raw_output\":%u,\"csi_output\":%u,\"eapol_frames\":%u,"
+ "\"raw_truncated\":%u,\"csi_truncated\":%u,\"payload_truncated\":%u,\"payload_missing\":%u,\"csi_empty\":%u,\"hdr_conflict\":%u,\"write_errors\":%u,\"high_water\":%u,"
+ "\"free_heap\":%u,\"min_free_heap\":%u,\"queue_depth\":%u,\"queue_pending\":%u,\"candidate_max\":%u,\"channel\":%u,\"synth_rate\":%u,\"synth_seconds\":%u,\"synthetic_candidates\":%u,\"synthetic_large\":%u,\"synthetic_eapol\":%u,\"wire_bytes\":%u}",
+ kind==7?control_event:kind==FINAL?"FINAL":"STATS",mode_name(),U(mode_epoch),synthetic_only?"true":"false",rf_capture_enabled?"true":"false",
+ U(target_csi_seen),U(candidate_seen),U(csi_enqueued),U(csi_output),U(large_frame_filtered),U(filter_other),U(handshake_data_count),
+ U(raw_drop)+U(csi_drop),U(csi_total),U(target_csi),U(raw_drop),U(csi_drop),U(raw_enqueued),U(csi_enqueued),U(raw_output),U(csi_output),U(eapol_frames),
+ U(raw_truncated),U(csi_truncated),U(payload_truncated),U(payload_missing),U(csi_empty),U(hdr_conflict),U(write_errors),U(high_water),
+ (unsigned)esp_get_free_heap_size(),(unsigned)esp_get_minimum_free_heap_size(),DEPTH,(unsigned)uxQueueMessagesWaiting(events),CANDIDATE_MAX,channel,synth_rate,synth_seconds,U(synthetic_candidates),U(synthetic_large),U(synthetic_eapol),U(wire_bytes));
+ configASSERT(n>0&&n<CAP);put16(e.header+34,n);put16(e.header+36,n);put64(e.header+16,esp_timer_get_time());emit(&e);
+ xSemaphoreGiveRecursive(tx_mutex);
+}
+static void output_task(void *arg){
+ (void)arg;int64_t last=esp_timer_get_time();
+ for(;;){event_t*e=NULL;if(xQueueReceive(events,&e,pdMS_TO_TICKS(10))==pdTRUE){emit(e);configASSERT(xQueueSend(free_slots,&e,0)==pdTRUE);}
+  if(atomic_load(&capture_mode)!=MODE_STOP&&esp_timer_get_time()-last>=1000000){control(STATS);last=esp_timer_get_time();}
+ }
+}
+static void drain(void){
+ while(uxQueueMessagesWaiting(free_slots)!=DEPTH)vTaskDelay(1);
+ xSemaphoreTakeRecursive(tx_mutex,portMAX_DELAY);uart_wait_tx_done(UART_NUM_0,pdMS_TO_TICKS(5000));xSemaphoreGiveRecursive(tx_mutex);
+}
+static unsigned first_set(const void *v) {
+    const uint8_t *p=v;for(unsigned i=0;i<sizeof(wifi_pkt_rx_ctrl_t);i++)if(p[i])return i;
+    return UINT_MAX;
+}
+_Static_assert(offsetof(wifi_promiscuous_pkt_t,payload)==sizeof(wifi_pkt_rx_ctrl_t),"RX prefix ABI mismatch");

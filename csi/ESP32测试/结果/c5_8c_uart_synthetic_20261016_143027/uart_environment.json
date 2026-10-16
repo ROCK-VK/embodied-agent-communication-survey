@@ -1,0 +1,15 @@
+{
+  "idf": "5.5.5",
+  "target": "esp32c5",
+  "pm_enable": false,
+  "uart": 0,
+  "boot_baud": 921600,
+  "clock": "PLL_F80M default, explicitly selected by benchmark",
+  "pyserial": "3.5",
+  "driver": "CH343 2.1.2025.7 / 2025-07-19 / WCH / oem202.inf",
+  "get_set_baudrate": "available in local IDF header; endpoint reliability measured separately",
+  "benchmark_clock": "PLL_F80M explicitly selected",
+  "staged_clock": "Inherited console; local C5 bootloader_console.c selects XTAL (source inference, no live clock-register read)",
+  "staged_actual_baud": 3000000,
+  "benchmark_actual_baud": 3004694
+}

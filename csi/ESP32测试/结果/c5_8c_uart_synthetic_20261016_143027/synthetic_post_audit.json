@@ -1,0 +1,81 @@
+{
+  "synthetic_probe100": {
+    "passed": true,
+    "checks": {
+      "payload_pattern": true,
+      "csi_pattern": true,
+      "synthetic_provenance": true,
+      "no_real_rf": true,
+      "eapol_complete": true
+    },
+    "atomic_records": 3000,
+    "eapol_records": 30,
+    "transport": {
+      "CONTROL": 5,
+      "CSI_DATA": 3000,
+      "FRAME": 30,
+      "STATS": 29,
+      "FINAL": 1
+    },
+    "scope": "Synthetic only; EAPOL MIC bytes are dummy and not cryptographically valid"
+  },
+  "synthetic_probe200": {
+    "passed": true,
+    "checks": {
+      "payload_pattern": true,
+      "csi_pattern": true,
+      "synthetic_provenance": true,
+      "no_real_rf": true,
+      "eapol_complete": true
+    },
+    "atomic_records": 6000,
+    "eapol_records": 30,
+    "transport": {
+      "CONTROL": 5,
+      "CSI_DATA": 6000,
+      "FRAME": 30,
+      "STATS": 29,
+      "FINAL": 1
+    },
+    "scope": "Synthetic only; EAPOL MIC bytes are dummy and not cryptographically valid"
+  },
+  "synthetic_handshake": {
+    "passed": true,
+    "checks": {
+      "payload_pattern": true,
+      "csi_pattern": true,
+      "synthetic_provenance": true,
+      "no_real_rf": true,
+      "eapol_complete": true
+    },
+    "atomic_records": 0,
+    "eapol_records": 30,
+    "transport": {
+      "CONTROL": 5,
+      "FRAME": 30,
+      "STATS": 29,
+      "FINAL": 1
+    },
+    "scope": "Synthetic only; EAPOL MIC bytes are dummy and not cryptographically valid"
+  },
+  "synthetic_mode_cycle": {
+    "passed": true,
+    "checks": {
+      "payload_pattern": true,
+      "csi_pattern": true,
+      "synthetic_provenance": true,
+      "no_real_rf": true,
+      "eapol_complete": true
+    },
+    "atomic_records": 10,
+    "eapol_records": 2,
+    "transport": {
+      "CONTROL": 8,
+      "FRAME": 2,
+      "CSI_DATA": 10,
+      "STATS": 1,
+      "FINAL": 1
+    },
+    "scope": "Synthetic only; EAPOL MIC bytes are dummy and not cryptographically valid"
+  }
+}

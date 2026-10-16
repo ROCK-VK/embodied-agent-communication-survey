@@ -1,0 +1,29 @@
+{
+  "passed": true,
+  "baud_requested": 3000000,
+  "baud_negotiated": {
+    "event": "BAUD_READY",
+    "requested": 3000000,
+    "actual": 3004694
+  },
+  "rate_requested": 280000,
+  "expected": 8203,
+  "host_loss": 0,
+  "elapsed_s": 30.006977500001085,
+  "measured_data_wire_Bps": 279930.6261351946,
+  "counters": {
+    "total_bytes": 8400022,
+    "received": 8203
+  },
+  "incomplete_bytes": 0,
+  "final": {
+    "event": "FINAL",
+    "expected": 8203,
+    "write_errors": 0,
+    "elapsed_us": 30005192,
+    "bytes": 8399872,
+    "free_heap": 300416,
+    "min_free_heap": 300328
+  },
+  "scope": "UART synthetic throughput only; Wi-Fi not initialized"
+}

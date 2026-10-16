@@ -1,0 +1,16 @@
+[
+  {
+    "source": "c5_csi_centric8_20261016_134717/analysis8b_final/analysis.json",
+    "total": 3913,
+    "candidate_le256": 3902,
+    "filtered_gt256": 11,
+    "interpretation": "Historical background size audit only; not validated probe recall"
+  },
+  {
+    "source": "c5_wpa2_packetid_poc_20261016_140730/attempt1_analysis/analysis.json",
+    "total": 174,
+    "candidate_le256": 106,
+    "filtered_gt256": 68,
+    "interpretation": "Historical background size audit only; not validated probe recall"
+  }
+]

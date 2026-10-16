@@ -76,7 +76,7 @@ def convert(capture,out,target,ap,live=False):
     out.mkdir(parents=True,exist_ok=False);rows,transport=read_stream(capture,live)
     frames=[];eapol=[];rejected=[]
     for r in rows:
-        if r['event'] not in ('CSI_DATA','RAW'):continue
+        if r['event'] not in ('CSI_DATA','RAW','FRAME'):continue
         if r['truncated']:raise ValueError('truncated frame/CSI record')
         if r['event']=='CSI_DATA':raw=assemble_api_parts(r)
         else:

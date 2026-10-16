@@ -1,0 +1,19 @@
+{
+  "wire_tests": 6,
+  "handshake_probe_tests": 10,
+  "mode_benchmark_eapol_tests": 9,
+  "official_fixture_icmp": {
+    "FALSE": 0,
+    "TRUE": 5
+  },
+  "fixture": "Wireshark v4.6.9 official WPA2-PSK CCMP/TKIP",
+  "site_decryption_performed": false,
+  "total_offline_tests": 25,
+  "synthetic_software_decryption_guard_passed": true,
+  "synthetic_eapol_tshark_messages": {
+    "1": 8,
+    "2": 8,
+    "3": 7,
+    "4": 7
+  }
+}
