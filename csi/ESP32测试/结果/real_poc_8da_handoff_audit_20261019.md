@@ -9,6 +9,7 @@
 - 实验工作目录本身不是 Git 仓库，因此不能用它的 `git status` 判定“无本地改动”。我将当前本地文件与公开 HEAD 的白名单副本逐个比较：`staged.c` 相同；`capture_core.inc`、`capture_real8c.py`、`wpa2_gate8c.py` 有后续差异；`orchestrate_real_poc.py` 只有本地副本、未发布。
 - `capture_core.inc` 的本地差异新增 `HANDSHAKE_ONLY && n<=256` 的 pair-small 备用导出；没有检查 Protected 位。`is_eapol()` 仍独立识别 EAPOL，只有 `eapol` 与 `pair_small` 都为假时才返回，因此新增保护条件应只限制备用诊断分支，不能包住或删除 EAPOL 分支。
 - `capture_real8c.py` 增加期望固件标签参数；`wpa2_gate8c.py` 改为即使 FRAME 未解析成 EAPOL也保留其PCAP索引。后者便于审计普通帧，但这些差异仍是未发布本地修改。
+- 对其余17个文本/源码文件做了完整逐个比对：CMake、decrypt、test、UDP协议和wire等文件只有字节/换行差异，没有文本逻辑差异。`sdkconfig.defaults` 未纳入公开仓库。另有本地专用 `tools/inspect_frames.py`，会打印FRAME地址与payload前缀；本轮没有运行，也没有发布。
 - 本地 orchestrator 使用 `range(1,5)` 自动执行最多四次 reassociate，每轮观察25秒后可重试；SSH连接默认超时15秒，循环没有覆盖整次实验的总时限。脚本还含本地认证材料，不应复制或发布。它目前不能用于实机。
 
 ## 四轮原始结果复核
