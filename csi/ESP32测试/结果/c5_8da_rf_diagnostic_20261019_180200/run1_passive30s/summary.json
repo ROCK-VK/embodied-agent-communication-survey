@@ -1,0 +1,68 @@
+{
+  "version": "sniffer-8d-a-full-filter",
+  "duration_requested_s": 30.0,
+  "channel": 2,
+  "rf_state": {
+    "actual_channel": 2,
+    "actual_mode": 0,
+    "channel_readback_ok": true,
+    "rf_capture_enabled": false,
+    "mode": "STOP"
+  },
+  "promiscuous": {
+    "prom_cb_total": 3130,
+    "prom_mgmt": 2906,
+    "prom_ctrl": 0,
+    "prom_data": 222,
+    "prom_misc": 2
+  },
+  "csi_pipeline": {
+    "csi_cb_total": 1544,
+    "csi_null": 0,
+    "csi_source_target": 128,
+    "csi_source_other": 1416,
+    "csi_hdr_present": 128,
+    "csi_buf_present": 128,
+    "csi_valid_channel_estimate": 128,
+    "csi_rxstate_ok": 128,
+    "csi_target_valid": 128,
+    "csi_data_records_exported": 2
+  },
+  "phy_distribution": {
+    "rx_11b": 0,
+    "rx_legacy": 1171,
+    "rx_ht": 373,
+    "rx_vht": 0,
+    "rx_other": 0
+  },
+  "candidate_filter": {
+    "candidate_seen": 2,
+    "candidate_enqueued": 2,
+    "candidate_output": 2,
+    "large_frame_filtered": 126,
+    "filter_other": 0,
+    "handshake_data_count": 0
+  },
+  "resources": {
+    "queue_drop": 0,
+    "write_errors": 0,
+    "high_water": 1,
+    "queue_depth": 24,
+    "free_heap": 114724,
+    "min_free_heap": 104356,
+    "raw_truncated": 0,
+    "csi_truncated": 0,
+    "payload_truncated": 0,
+    "payload_missing": 0,
+    "csi_empty": 0,
+    "hdr_conflict": 0
+  },
+  "transport": {
+    "CONTROL": 3,
+    "CSI_DATA": 2,
+    "STATS": 29,
+    "FINAL": 1
+  },
+  "stop_ack_received": true,
+  "final_received": true
+}

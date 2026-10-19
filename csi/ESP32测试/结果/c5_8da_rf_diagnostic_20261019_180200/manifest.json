@@ -1,0 +1,35 @@
+{
+  "idf": "5.5.5",
+  "target": "esp32c5",
+  "firmware": "sniffer-8d-a-full-filter",
+  "app_address": "0x10000",
+  "app_only": true,
+  "flash_hash_verified": true,
+  "runtime_ready": {
+    "event": "READY",
+    "version": "sniffer-8d-a-full-filter",
+    "baud": 921968,
+    "rx_ctrl_size": 64,
+    "candidate_max": 256,
+    "sig_first_byte": 56,
+    "dump_first_byte": 58,
+    "mac_version": 3,
+    "rf_capture_enabled": false
+  },
+  "runtime_evidence": "esptool app hash verification followed by READY, 3M baud negotiation, and dual passive observation windows",
+  "source_sha256": {
+    "CMakeLists.txt": "3ee379412f8ea38a1a3e8e2fa5160dfcc56ec2303577d3aa42df155a02e6040e",
+    "main/CMakeLists.txt": "9f4870d02a5d38a34479a911538ab141e4f0e08c66702f810e5ffdffcd083ade",
+    "main/staged.c": "6ebcf540f8a84666e5fb635e83ec5c53bfa2b3ec2a832ec883d6a03328ebc959",
+    "main/capture_core.inc": "e1586a1ff2eebc0b62d3a3d21b71131a31d4d6cf5ea6cb21a9953258ef11b51e",
+    "sdkconfig.defaults": "ee07aa45ec0324b2624d1d9c5e3320901022f98fb1ae5c34106dad393eb9661b"
+  },
+  "build_sha256": {
+    "sniffer_8d_a_full_filter.bin": "207be13a745ab59b5688e7b43349b634662af97f6dbccad1bdebbab4ead3cc69",
+    "sniffer_8d_a_full_filter.elf": "a9842699c10b5103766330aea4b2ea8af927c2f771c5064a5ef17d2c924a7fac"
+  },
+  "host_tools_sha256": {
+    "capture_passive_8da.py": "1730bb191636dbba3dd5f04a742a785d0d4ba8a91da3fa942beaeec43c306d15",
+    "test_control_8da.py": "ca01e74f33b1e9e04918e6c738ef930514169527ecb2cb7053e1f570077ecba8"
+  }
+}
