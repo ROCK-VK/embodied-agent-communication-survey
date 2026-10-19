@@ -1,0 +1,11 @@
+[
+  {
+    "record_serial": 28,
+    "channel": 2,
+    "format": 0,
+    "raw_len": 137,
+    "sig_len": 137,
+    "trailing4_fcs_matches": false,
+    "synthetic": false
+  }
+]

@@ -1,0 +1,65 @@
+{
+  "firmware": "sniffer-8c-staged-capture",
+  "idf": "5.5.5",
+  "target": "esp32c5",
+  "firmware_changed": false,
+  "source_sha256": {
+    "CMakeLists.txt": "7a1d48b6792014ddcbd8e146c02c817f8ff610fbfcdc1e0445fca1267f786616",
+    "main\\CMakeLists.txt": "9f4870d02a5d38a34479a911538ab141e4f0e08c66702f810e5ffdffcd083ade",
+    "main\\staged.c": "aabe55d68a0166c2125c6ffccdf2ecff251122b5f0a19542c7ff9cff9b9cffaf",
+    "main\\capture_core.inc": "dca0b8f9bfb9bdde67f0fed3e6f171d506768e9f26301f6cc6152dce27291fa0",
+    "sdkconfig.defaults": "ee07aa45ec0324b2624d1d9c5e3320901022f98fb1ae5c34106dad393eb9661b"
+  },
+  "build_sha256": {
+    "sniffer_8c_staged.bin": "ab7269205252b6bc3ec7e9b664101158b338ece07035c1779c759184deff109c",
+    "sniffer_8c_staged.elf": "1a876142fc2d414cc5b0ac4903cbe7413cf74fa5e741ed0b894e27cb34c32826"
+  },
+  "ready": {
+    "event": "READY",
+    "version": "sniffer-8c-staged-capture",
+    "baud": 921968,
+    "rx_ctrl_size": 64,
+    "candidate_max": 256,
+    "sig_first_byte": 56,
+    "dump_first_byte": 58,
+    "mac_version": 3,
+    "rf_capture_enabled": false
+  },
+  "baud": {
+    "event": "BAUD_READY",
+    "requested": 3000000,
+    "actual": 3000000
+  },
+  "baseline_flash_evidence": "Oct16 app-only Hash verified; current source/bin/ELF hashes unchanged, current READY matches; no new flash readback",
+  "host_tools_sha256": {
+    "audit_synthetic.py": "7cbb5486aa972150aef24b640a56867e89ee93c7d039cd3cae94ba27c08c0ce1",
+    "capture_real8c.py": "e74387430dc0915be68dda47dcd289a5fc534f568aeb43a74c2d1e827e5cc1bb",
+    "decrypt_probe8.py": "826e98c5cd396d7e1f495d41bc65be5a666017cffb16b6dc80e98d0843396e0e",
+    "staged_host.py": "e7b578f9c234b750ad3ba6223c696f7eeadc94a18342cccf4777a493c822a2c2",
+    "test8c_wire.py": "5c3790cdbc6bfb0fae941da312f8555491757f3515044ddbd302f78e4f25fbee",
+    "test_real_capture.py": "ccf20967fca5b7daa64a353247c97d7fa4ef7bb4729d4e4b188e761b2f14eb94",
+    "test_staged.py": "d3f1b015ad1f8cf69df6e0328914f13336deab105fb1d76c3647c3eeec7044a4",
+    "udp_probe_protocol.py": "7a33dcc234dd4f1f475a056cabf6f3184b75da705c8f4df7028497d50504454d",
+    "wire8c.py": "9dfce11219b27d934069ae4f0422bfce012388c61cbf42667b50978dc45fa24b",
+    "wpa2_gate8c.py": "6768fda41863e498e062e26db6bfc1ac8e1b4eb6c55ddb80abb18375af7d57b2"
+  },
+  "mode_acks": [
+    {
+      "mode": "HANDSHAKE_ONLY",
+      "mode_epoch": 1,
+      "synthetic": false,
+      "rf_capture_enabled": true,
+      "queue_pending": 0
+    },
+    {
+      "mode": "STOP",
+      "mode_epoch": 2,
+      "synthetic": false,
+      "rf_capture_enabled": false,
+      "queue_pending": 0
+    }
+  ],
+  "final_received": true,
+  "serial_closed": true,
+  "ssh_exited": true
+}
