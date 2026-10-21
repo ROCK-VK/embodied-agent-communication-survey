@@ -4,7 +4,7 @@
 
 ## 当前状态：被动 CSI 已复核，握手仍未通过
 
-- 8d-a full filter 已由基线双轮和10月21日短时被动 sanity 证明能收到 Jetson CSI。最新 sanity 的第三窗记录目标来源CSI 10条、目标有效CSI 10条，队列/串口错误为0；前两窗未遇到目标帧，仅说明短窗差异。
+- 8d-a full filter 已由基线双轮和10月21日短时被动 sanity 证明能收到 Jetson CSI。最新 16:00 HANDSHAKE_ONLY 窗口持续28.377秒，CSI callback 1713次，目标来源/有效CSI 16/16，全局HT计数597，drop、写错、截断均0，最低heap 86332B。未导出CSI_DATA原子记录，也未观察到EAPOL/M1–M4；这只通过了回调层sanity。
 - 10月19日的握手实验未得到完整 M1–M4；最近旧轮因资源门禁停止，落盘帧与丢帧的边界见[接管审计](csi/ESP32测试/结果/real_poc_8da_handoff_audit_20261019.md)。10月21日没有重关联、业务 UDP 或解密。
 - HANDSHAKE 额外 pair-small 过滤已收紧为配对方向、Protected=0且长度<=256B；明确 EAPOL 路径保持独立。离线 parser 要求 M4 Secure 位，并保留非EAPOL Data FRAME 到 PCAP。修复与被动sanity记录见[2026-10-21后续报告](csi/ESP32测试/结果/8d_a_pairclear_followup_20261021.md)。
 

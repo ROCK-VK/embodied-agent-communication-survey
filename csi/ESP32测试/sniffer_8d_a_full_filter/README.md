@@ -29,3 +29,9 @@
 - 8d-a相关离线回归20项通过，wire测试6项通过（1项可选 tshark 集成未运行），旧 WPA2 结构测试10项通过。parser新增 M4 Secure 位检查，并将非EAPOL Data FRAME 保留在PCAP。
 - ESP32-C5 / ESP-IDF 5.5.5 build与COM10烧录校验完成。约10秒被动 sanity 三窗中，第三窗有10条目标来源 CSI、10条有效；全局 HT计数88；queue/CSI/RAW drop、串口错误与截断为0，最低heap105828B。前两窗目标CSI为0；每窗波动不能单独判作固件故障。
 - 没有捕获完整 M1–M4、没有主动重关联、UDP或WPA2现场解密。HANDSHAKE候选筛选在真实握手下的召回仍待验证。完整匿名汇总见[后续报告](../结果/8d_a_pairclear_followup_20261021.md)。
+
+### 2026-10-21 16:00 被动 CSI 回调复测
+
+- HANDSHAKE_ONLY 被动监听28.377秒，采集前 Jetson 只读状态为2.4 GHz / channel 2；无重关联、无UDP。
+- `csi_cb_total=1713`，目标来源/有效 CSI 为16/16，全局 `rx_ht=597`；queue/raw/CSI drop、写错、截断和空CSI均0，最低heap86332B，MODE STOP和FINAL正常。
+- 没有导出 `CSI_DATA` 原子记录，没有EAPOL/M1–M4；仅通过CSI callback层sanity，不表示业务记录或握手成功。详见[后续报告](../结果/8d_a_pairclear_followup_20261021.md)。

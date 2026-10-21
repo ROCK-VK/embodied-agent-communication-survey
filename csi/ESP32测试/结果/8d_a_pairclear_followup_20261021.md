@@ -21,6 +21,12 @@
 
 第三窗通过短时被动 CSI sanity。HT 计数为窗口全局值，不证明目标的10条 CSI 都使用 HT。三窗均无队列丢弃/串口写错/截断并正常 STOP/FINAL。没有捕获完整 M1–M4，也没有验证 pair-small 筛选对真实握手的召回。
 
+### 16:00 被动 CSI 回调复测
+
+Jetson 在采集前的最近只读检查仍连接在 2417 MHz（2.4 GHz / channel 2）；ESP 在 `HANDSHAKE_ONLY` 模式被动监听28.377秒，没有 Jetson 重关联或业务 UDP。ESP 记录到 1713 次 CSI callback，其中目标来源 CSI 16、目标有效 CSI 16；窗口全局 HT 计数597。queue/raw/CSI drop、写错、截断和空 CSI 均为0，最低空闲 heap 为86332B，MODE STOP和FINAL正常。
+
+本轮没有导出 `CSI_DATA` 原子记录，EAPOL计数为0，未取得完整 M1–M4。因此结论仅为回调层 CSI sanity 通过，不代表捕获了CSI样本记录或握手。
+
 ## Jetson Wi-Fi 现场边界
 
 早期只读快照发现 2.4 GHz 与 5 GHz 使用不同 NetworkManager 配置，自动连接设置不同：2.4 GHz 开启、5 GHz 关闭，优先级相同。NetworkManager 与 wpa_supplicant 日志显示多次本机发起的断开和 `new-activation`，但没有直接定位激活请求的客户端；60秒 D-Bus 观察没有捕获调用者。该证据不支持把现象简单解释为 AP band steering 或 5 GHz 自动连接优先级。
