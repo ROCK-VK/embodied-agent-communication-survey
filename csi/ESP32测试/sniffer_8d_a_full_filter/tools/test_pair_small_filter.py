@@ -9,8 +9,8 @@ CANDIDATE_MAX = 256
 PROTECTED = 0x4000
 
 
-def pair_small_allowed(mode, length, frame_control):
-    return mode == MODE_HANDSHAKE and length <= CANDIDATE_MAX and not (frame_control & PROTECTED)
+def pair_small_allowed(mode, length, frame_control, exact_pair=True):
+    return mode == MODE_HANDSHAKE and exact_pair and length <= CANDIDATE_MAX and not (frame_control & PROTECTED)
 
 
 class PairSmallFilterTests(unittest.TestCase):
@@ -22,6 +22,9 @@ class PairSmallFilterTests(unittest.TestCase):
         self.assertFalse(pair_small_allowed(MODE_HANDSHAKE, 128, 0x4008))
         self.assertFalse(pair_small_allowed("PROBE_CAPTURE", 128, 0x0008))
 
+    def test_pair_diagnostic_still_requires_exact_ap_station_pair(self):
+        self.assertFalse(pair_small_allowed(MODE_HANDSHAKE, 128, 0x0008, exact_pair=False))
+
     def test_c_source_matches_policy_and_preserves_eapol_path(self):
         source = SOURCE.read_text(encoding="utf-8")
         match = re.search(r"bool\s+pair_small\s*=\s*\(([^;]+)\);", source)
@@ -29,9 +32,14 @@ class PairSmallFilterTests(unittest.TestCase):
         expression = re.sub(r"\s+", "", match.group(1))
         self.assertEqual(
             expression,
-            "mode==MODE_HANDSHAKE&&n<=CANDIDATE_MAX&&!(fc&0x4000)",
+            "mode==MODE_HANDSHAKE&&(up||down)&&n<=CANDIDATE_MAX&&!(fc&0x4000)",
         )
+        self.assertIn("bool target_related=station_uplink||same(p->payload+4,target);", source)
+        self.assertIn("if(target_related)atomic_fetch_add(&prom_target_related_data,1);", source)
+        self.assertIn("if(!target_related)return;", source)
+        self.assertIn("bool eapol=is_eapol(p->payload,n,h);", source)
         self.assertIn("if(!eapol && !pair_small)return;", source)
+        self.assertIn(r'\"prom_target_related_data\":%u,\"pair_seen\":%u,\"pair_frames\":%u', source)
 
 
 if __name__ == "__main__":
