@@ -1,31 +1,31 @@
-# CSI调研与实机验证
+# CSI 调研与实机验证
 
-更新：2026-10-21。主线仍为HT20下packet_id↔Wi-Fi Data↔CSI。
+更新：2026-10-21。当前主线是 ESP32-C5 在 2.4 GHz HT20 下采集 CSI，并推进 packet_id ↔ Wi-Fi Data ↔ CSI。
 
-## 当前状态：被动 CSI 已复核，握手仍未通过
+## 当前进度
 
-- 8d-a full filter 已由基线双轮和10月21日短时被动 sanity 证明能收到 Jetson CSI。最新 16:00 HANDSHAKE_ONLY 窗口持续28.377秒，CSI callback 1713次，目标来源/有效CSI 16/16，全局HT计数597，drop、写错、截断均0，最低heap 86332B。未导出CSI_DATA原子记录，也未观察到EAPOL/M1–M4；这只通过了回调层sanity。
-- 10月19日的握手实验未得到完整 M1–M4；最近旧轮因资源门禁停止，落盘帧与丢帧的边界见[接管审计](ESP32测试/结果/real_poc_8da_handoff_audit_20261019.md)。10月21日没有重关联、业务 UDP 或解密。
-- HANDSHAKE 额外 pair-small 过滤已收紧为配对方向、Protected=0且长度<=256B；明确 EAPOL 路径保持独立。离线 parser 要求 M4 Secure 位，并保留非EAPOL Data FRAME 到 PCAP。离线修复和被动sanity记录见[2026-10-21后续报告](ESP32测试/结果/8d_a_pairclear_followup_20261021.md)。
+8d-a full-filter 固件已多次实机收到 Jetson 的有效 CSI。最新一次 HANDSHAKE_ONLY 采集约239秒，CSI callback 11,927 次，目标来源有效 CSI 1,309 条、HT 分类计数 3,286；队列丢弃、串口错误和截断均为0，最低空闲 heap 58,104 B。
 
-只读网络日志显示 Jetson 的2.4 GHz与5 GHz曾使用不同 NetworkManager profile；旧快照中2.4 GHz允许自动连接、5 GHz关闭自动连接。用户后来手动删除了此前的5 GHz profile；随后只读确认 `wlan0` 已连接在 2417 MHz（channel 2），旧 profile UUID 不存在。此前切换的具体触发进程仍未知；不要简单归因于 AP band steering 或自动连接优先级。
+本轮只尝试了一次远程 reassociate，命令返回 exit code 1；随后约18秒内 SSH 端口44/44可达，没有确认断网重连，也没有捕获 EAPOL 或 M1–M4。采集正常到时停止。详细匿名结果见[单次重关联尝试报告](ESP32测试/结果/real_poc_8da_single_reassociate_20261021.md)。
 
-旧 `orchestrate_real_poc.py` 含最多四次自动 reassociate，禁止运行。稳定网络后，任何重关联前仍须报告 ESP/CSI/SSH/Wi-Fi 状态并等待用户明确确认；单次最多一次，等待不超过30秒。
+## 下一步
+
+用户提出改由现场手动断开并恢复 Jetson Wi-Fi。下次先重新 ARM ESP 并确认 CSI 与 SSH 状态，再由用户手动执行一个断开/恢复周期；不自动重试。完整4-way握手通过验证前，不进入 UDP、WPA2 解密或 packet_id 实验。
+
+## 项目边界
+
+- 不运行含自动重连循环的旧 orchestrator。
+- HANDSHAKE_ONLY 中的 CSI callback 计数不等同于 CSI_DATA 原子记录；EAPOL、M1–M4 需从真实记录离线确认。
+- 8d-a 使用 full promiscuous filter；HANDSHAKE 诊断候选限于配对方向、未加密且不超过256B，EAPOL 识别路径独立。
+- Jetson网络、驱动、ROS、服务、AP与传感器链路保持保护约束；没有现场授权前不主动改动网络。
+- 本地保留原始串流、Protected frame、握手与逐包资料；公开仓库只放自有代码和脱敏汇总。
 
 ## 阅读入口
 
-- [本次真实握手结果](ESP32测试/结果/c5_8c_real_wpa2_20261019_171844/8c真实握手结果.md)
-- [8d-a/Gemini遗留实机结果审计](ESP32测试/结果/real_poc_8da_handoff_audit_20261019.md)
-- [8c UART/Synthetic工程报告](ESP32测试/结果/c5_8c_uart_synthetic_20261016_143027/8c_UART与Synthetic验证报告.md)
-- [8c源码与工具](ESP32测试/sniffer_8c_staged/README.md)、[独立UART benchmark](ESP32测试/uart_benchmark/README.md)
-- [HT/WPA2主方案](HT主方案与WPA2业务关联计划_2026-10-16.md)
-- [8b真实F类历史](ESP32测试/结果/c5_wpa2_packetid_poc_20261016_140730/WPA2_PoC第1次执行结果.md)
-- [8b A1历史窗口](ESP32测试/结果/c5_csi_centric8_20261016_134717/CSI_centric_GateA1_A2结果.md)
-- [ESP方案](ESP32_CSI测试方案.md)、[Pi方案](树莓派4B_Nexmon_CSI测试方案.md)、[路线](CSI当前路线与PoC验证.md)
+- [HT主方案与WPA2业务关联计划](HT主方案与WPA2业务关联计划_2026-10-16.md)
+- [8d-a代码与模式说明](ESP32测试/sniffer_8d_a_full_filter/README.md)
+- [8d-a接管审计](ESP32测试/结果/real_poc_8da_handoff_audit_20261019.md)
+- [pair-clear修复与被动CSI sanity](ESP32测试/结果/real_poc_8da_pairclear_20261021.md)
 - [更新记录](更新记录.md)
 
-已完成的工程测试：3M UART 250/280KBps×30秒零错，8c synthetic 100/200候选/s、HAND只计数、模式ACK/排空及25项离线回归通过；这些不替代真实RF/握手/解密验证。256B候选上限取slot前过滤、完整原子段保留，聚合probe覆盖仍待实测。
-
-Router/legacy/HT历史有实证；物理RunA碰线失效、校准未完成。Pi/Nexmon、AX210/x86/PicoScenes、VHT20/ESP AP/传感器后置，Atheros历史备用，FeitCSI退出主路线。
-
-公开自有代码与匿名统计；现场raw Protected/EAPOL/CSI/PCAP、nonce/MIC/凭据/Flash/Agent规则不上传。
+Pi4B Nexmon、AX210 PicoScenes、VHT20、ESP AP 和传感器接入均为后续阶段；Atheros保留为历史备用，FeitCSI不属于当前主路线。

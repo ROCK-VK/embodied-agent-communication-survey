@@ -19,19 +19,27 @@
 
 - **离线回归**：通过 20 项协议与 parser 回归测试，CONTROL 状态导出新增字段解析测试全部通过。
 - **实机双轮被动 RF 验证（Jetson 保持原连接不触发断网）**：
-  - Run 1（30.0s）：`prom_cb_total = 3,130`，`csi_cb_total = 1,544`（从 8c 的 0 彻底恢复），目标有效 CSI 128；全局 `rx_ht = 373`，未发生队列丢包或内存异常。
-  - Run 2（15.0s）：`prom_cb_total = 1,487`，`csi_cb_total = 851`，目标有效 CSI 76；全局 `rx_ht = 182`。
+  - Run 1（30.0s）：`prom_cb_total = 3,130`，`csi_cb_total = 1,544`（从 8c 的 0 彻底恢复），目标有效 CSI 128，HT CSI 128，未发生队列丢包或内存异常。
+  - Run 2（15.0s）：`prom_cb_total = 1,487`，`csi_cb_total = 851`，目标有效 CSI 76，HT CSI 76。
 - **结论**：在其余 8c RF 行为保持不变时，将 promiscuous filter 由 DATA-only 恢复为 full mask，是恢复 CSI callback 的关键直接支持变量。
 
 ## 2026-10-21 HANDSHAKE pair-clear 后续
 
-- 额外 HANDSHAKE pair-small 诊断仅接受配对方向、Protected 位清零且长度不超过256B的候选；原 EAPOL 识别/入队逻辑独立保留。这是缓解 Protected 背景小帧占用队列的筛选，不把 Protected=0 当作 EAPOL 证明。
-- 8d-a相关离线回归20项通过，wire测试6项通过（1项可选 tshark 集成未运行），旧 WPA2 结构测试10项通过。parser新增 M4 Secure 位检查，并将非EAPOL Data FRAME 保留在PCAP。
-- ESP32-C5 / ESP-IDF 5.5.5 build与COM10烧录校验完成。约10秒被动 sanity 三窗中，第三窗有10条目标来源 CSI、10条有效；全局 HT计数88；queue/CSI/RAW drop、串口错误与截断为0，最低heap105828B。前两窗目标CSI为0；每窗波动不能单独判作固件故障。
-- 没有捕获完整 M1–M4、没有主动重关联、UDP或WPA2现场解密。HANDSHAKE候选筛选在真实握手下的召回仍待验证。完整匿名汇总见[后续报告](../结果/8d_a_pairclear_followup_20261021.md)。
+- HANDSHAKE 额外 pair-small 诊断只接受配对方向、Protected 位清零且长度不超过256B的候选；原 EAPOL 识别/入队逻辑独立保留。这是筛选候选，不把 Protected=0 当作 EAPOL 证明。
+- 8d-a离线回归20项通过，wire测试6项通过（1项可选 tshark 集成未运行），旧 WPA2 结构测试10项通过。parser新增 M4 Secure 位检查，并将未解析成EAPOL的 Data FRAME 保留在 PCAP。
+- ESP32-C5 / ESP-IDF 5.5.5 build与COM10烧录校验完成。约10秒被动sanity三窗中，第三窗有10条目标来源CSI、10条有效；全局HT计数88；queue/CSI/RAW drop、串口错误与截断为0，最低heap105828B。前两窗目标CSI为0；短窗口波动不能单独判作固件故障。
+- 没有捕获完整 M1–M4、没有UDP或WPA2现场解密。完整匿名汇总见[后续报告](../结果/8d_a_pairclear_followup_20261021.md)。
 
-### 2026-10-21 16:00 被动 CSI 回调复测
+### 16:00 被动 CSI 回调复测
 
 - HANDSHAKE_ONLY 被动监听28.377秒，采集前 Jetson 只读状态为2.4 GHz / channel 2；无重关联、无UDP。
-- `csi_cb_total=1713`，目标来源/有效 CSI 为16/16，全局 `rx_ht=597`；queue/raw/CSI drop、写错、截断和空CSI均0，最低heap86332B，MODE STOP和FINAL正常。
-- 没有导出 `CSI_DATA` 原子记录，没有EAPOL/M1–M4；仅通过CSI callback层sanity，不表示业务记录或握手成功。详见[后续报告](../结果/8d_a_pairclear_followup_20261021.md)。
+- csi_cb_total=1713，目标来源/有效 CSI 为16/16，全局 rx_ht=597；queue/raw/CSI drop、写错、截断和空CSI均0，最低heap86332B，MODE STOP和FINAL正常。
+- 没有导出 CSI_DATA 原子记录，没有EAPOL/M1–M4；仅通过CSI callback层sanity，不表示业务记录或握手成功。
+
+### 16:12 单次远程重关联尝试未确认
+
+- HANDSHAKE_ONLY 在channel 2运行约239秒，CSI callback 11927、目标来源有效CSI 1309、HT分类3286；EAPOL与M1–M4均0，CSI_DATA原子记录0。
+- Queue/raw/CSI drop、写错、截断和空CSI均0，最低heap58104B；采集正常因duration_limit结束并收到STOP/FINAL。
+- 仅发出一次用户授权的远程 reassociate，命令返回exit code 1。其后约18秒SSH端口观察44/44可达，没有确认断网；实际是否发生短暂无线状态变化未知。
+- 下一轮改为用户手动控制一个断开/恢复周期：先重新ARM并检查CSI、SSH与Wi-Fi状态，再等用户操作；不远程重试、不自动重连。完整M1–M4通过离线解析确认前，不进入PROBE、UDP或解密。
+- 详细匿名结果见[单次重关联尝试报告](../结果/real_poc_8da_single_reassociate_20261021.md)。
