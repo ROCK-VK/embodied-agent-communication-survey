@@ -1,14 +1,16 @@
 # CSI调研与实机验证
 
-更新：2026-10-19。主线HT20下packet_id↔Wi-Fi Data↔CSI。
+更新：2026-10-21。主线仍为HT20下packet_id↔Wi-Fi Data↔CSI。
 
-## 最新真实实验：8d-a CSI正常，握手门禁未通过
+## 当前状态：被动 CSI 已复核，握手仍未通过
 
-8d-a full filter 已两次被动采到Jetson CSI。之后四轮 real_poc 均未得到完整 M1-M4；最新一轮有442条小帧落盘、508次RAW queue drop，高水位24/24后触发resource gate并安全STOP。保存帧中441条带Protected位；未落盘的508条不能逐帧定性。
+- 8d-a full filter 已由基线双轮和10月21日短时被动 sanity 证明能收到 Jetson CSI。最新 sanity 的第三窗记录目标来源CSI 10条、目标有效CSI 10条，队列/串口错误为0；前两窗未遇到目标帧，仅说明短窗差异。
+- 10月19日的握手实验未得到完整 M1–M4；最近旧轮因资源门禁停止，落盘帧与丢帧的边界见[接管审计](csi/ESP32测试/结果/real_poc_8da_handoff_audit_20261019.md)。10月21日没有重关联、业务 UDP 或解密。
+- HANDSHAKE 额外 pair-small 过滤已收紧为配对方向、Protected=0且长度<=256B；明确 EAPOL 路径保持独立。离线 parser 要求 M4 Secure 位，并保留非EAPOL Data FRAME 到 PCAP。修复与被动sanity记录见[2026-10-21后续报告](csi/ESP32测试/结果/8d_a_pairclear_followup_20261021.md)。
 
-没有进入 PROBE、UDP 或 WPA2 解密。最新轮 ESP 已 STOP/FINAL，但较早一轮缺少 FINAL；当前无采集进程。Jetson此刻 ping 和 SSH 均不可达，Wi-Fi状态未知。旧 orchestrator 含最多四次自动 reassociate，修正前不得再运行。
+只读网络日志显示 Jetson 的2.4 GHz与5 GHz曾使用不同 NetworkManager profile；旧快照中2.4 GHz允许自动连接、5 GHz关闭自动连接。用户后来手动删除了此前的5 GHz profile；随后只读确认 `wlan0` 已连接在 2417 MHz（channel 2），旧 profile UUID 不存在。此前切换的具体触发进程仍未知；不要简单归因于 AP band steering 或自动连接优先级。
 
-本轮只读接管核验报告：[8d-a/Gemini遗留实机结果审计](csi/ESP32测试/结果/real_poc_8da_handoff_audit_20261019.md)。最小 `pair_small` 过滤修复与离线测试待用户确认；COM10未枚举，尚无可确认的flash条件。
+旧 `orchestrate_real_poc.py` 含最多四次自动 reassociate，禁止运行。稳定网络后，任何重关联前仍须报告 ESP/CSI/SSH/Wi-Fi 状态并等待用户明确确认；单次最多一次，等待不超过30秒。
 
 ## 阅读入口
 

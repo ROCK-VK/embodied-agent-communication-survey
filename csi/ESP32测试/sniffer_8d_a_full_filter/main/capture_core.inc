@@ -128,13 +128,19 @@ static void prom_cb(void *buf,wifi_promiscuous_pkt_type_t kind) {
     bool down=same(p->payload+10,ap)&&same(p->payload+4,target);
     if(!up&&!down)return;
     atomic_fetch_add(&pair_seen,1);
-    if(!is_eapol(p->payload,n,h))return; // Only clear pair EAPOL, NEVER ordinary Data raw.
-    atomic_fetch_add(&pair_frames,1);atomic_fetch_add(&eapol_frames,1);
-    if(n>CAP){atomic_fetch_add(&raw_truncated,1);return;} // Explicit reject, never export partial EAPOL.
+    unsigned mode=atomic_load(&capture_mode);
+    uint16_t fc=le16(p->payload);
+    bool eapol=is_eapol(p->payload,n,h);
+    // Keep EAPOL independent; only clear, bounded pair frames enter the diagnostic path.
+    bool pair_small=(mode==MODE_HANDSHAKE && n<=CANDIDATE_MAX && !(fc&0x4000));
+    if(!eapol && !pair_small)return;
+    atomic_fetch_add(&pair_frames,1);
+    if(eapol)atomic_fetch_add(&eapol_frames,1);
+    if(n>CAP){atomic_fetch_add(&raw_truncated,1);return;} // Explicit reject, never export partial frame.
     if(up)atomic_fetch_add(&uplink_data_cb,1);else atomic_fetch_add(&downlink_eapol_cb,1);
     event_t *e=take();if(!e){atomic_fetch_add(&raw_drop,1);return;}
     common(e,RAW,&meta,p->payload);unsigned copy=n>CAP?CAP:n;
-    put16(e->header+32,EAPOL|(up?UPLINK:0)|(copy<n?TRUNCATED:0)); // FCS semantics UNCONFIRMED.
+    put16(e->header+32,(eapol?EAPOL:0)|(up?UPLINK:0)|(copy<n?TRUNCATED:0)); // FCS semantics UNCONFIRMED.
     put16(e->header+34,n);put16(e->header+36,copy);
     if(copy<n)atomic_fetch_add(&raw_truncated,1);
     memcpy(e->data,p->payload,copy);enqueue(e);

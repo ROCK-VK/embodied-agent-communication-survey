@@ -81,10 +81,11 @@ def convert(capture,out,target,ap,live=False):
         if r['event']=='CSI_DATA':raw=assemble_api_parts(r)
         else:
             raw=bytes.fromhex(r['raw_hex'])
-            try:e=parse_eapol(raw,target,ap)
+            try:
+                e=parse_eapol(raw,target,ap)
+                e['record_serial']=r['record_serial'];eapol.append(e)
             except ValueError as exc:
-                rejected.append(dict(record_serial=r['record_serial'],reason=str(exc)));continue
-            e['record_serial']=r['record_serial'];eapol.append(e)
+                rejected.append(dict(record_serial=r['record_serial'],reason=str(exc)))
         frames.append((r,raw))
     index=[]
     with (out/'combined_private.pcap').open('xb') as f:

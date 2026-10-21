@@ -18,7 +18,8 @@ def probe_allowed(exchange,counters):
 
 def main():
  p=argparse.ArgumentParser();p.add_argument('--port',default='COM10');p.add_argument('--channel',type=int,required=True);p.add_argument('--target',required=True);p.add_argument('--ap',required=True)
- p.add_argument('--baud',type=int,default=3000000);p.add_argument('--duration',type=float,default=240);p.add_argument('--commands',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
+ p.add_argument('--baud',type=int,default=3000000);p.add_argument('--duration',type=float,default=240);p.add_argument('--commands',type=Path,required=True);p.add_argument('--output',type=Path,required=True)
+ p.add_argument('--expected-version',default='sniffer-8d-a-full-filter');a=p.parse_args()
  for m in (a.target,a.ap):
   if not re.fullmatch(r'(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}',m):p.error('MAC format')
  if not 1<=a.channel<=196 or not 0<a.duration<=600:p.error('channel/duration')
@@ -39,7 +40,7 @@ def main():
   tmp=a.output/'state.tmp';tmp.write_text(json.dumps(state(),indent=2),encoding='utf-8');tmp.replace(a.output/'state.json')
  with s,(a.output/'stream.bin').open('xb') as raw,(a.output/'stream.bin.times.jsonl').open('x',encoding='utf-8') as times:
   try:
-   ready,br=connect(s,'sniffer-8c-staged-capture',a.baud)
+   ready,br=connect(s,a.expected_version,a.baud)
    (a.output/'ready.json').write_text(json.dumps(dict(ready=ready,baud=br),indent=2),encoding='utf-8')
    send(f'CFG,{a.channel},{a.target},{a.ap}');setup_deadline=time.monotonic()+20
    while not final:

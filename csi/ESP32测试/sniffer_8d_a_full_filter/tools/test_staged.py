@@ -4,7 +4,7 @@ from pathlib import Path
 from staged_host import validate_ack,Session
 from benchmark_host import Parser
 from wire8c import encode,RAW,Decoder
-from wpa2_gate8c import convert
+from wpa2_gate8c import convert,parse_eapol
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'sniffer_8_csi/tools'))
 from test_wpa2_gate8 import sample,STA,AP
 
@@ -44,6 +44,22 @@ class ParserTests(unittest.TestCase):
    (capture/'stream.bin').write_bytes(wire);(capture/'stream.bin.times.jsonl').write_text('\n'.join(map(json.dumps,times))+'\n',encoding='utf-8')
    r=convert(capture,base/'out',STA,AP);self.assertTrue(r['handshake']['complete_four_way']);self.assertEqual(r['handshake']['messages'],{'1':1,'2':1,'3':1,'4':1})
    index=json.loads((base/'out/frame_index_private.json').read_text(encoding='utf-8'));self.assertEqual(len(index),4);self.assertTrue(all(x['synthetic'] for x in index))
+ def test_m4_requires_secure_key_info_bit(self):
+  raw=sample(4);raw[37:39]=(0x010a).to_bytes(2,'big')
+  self.assertIsNone(parse_eapol(bytes(raw),STA,AP)['message'])
+ def test_non_eapol_data_frame_stays_in_pcap(self):
+  with tempfile.TemporaryDirectory() as td:
+   base=Path(td);capture=base/'capture';capture.mkdir()
+   raw=bytes(sample(2)[:24])+bytes.fromhex('aaaa030000000800')+bytes(20)
+   ta=bytes.fromhex(STA.replace(':',''));ra=bytes.fromhex(AP.replace(':',''))
+   stream=encode(RAW,raw,serial=1,fc=0x0108,seq_ctrl=0,ta=ta,ra=ra,flags=4|16)
+   (capture/'stream.bin').write_bytes(stream)
+   (capture/'stream.bin.times.jsonl').write_text(json.dumps(dict(record_serial=1,host_time_ns=1700000000000000001,host_mono_ns=1))+'\n',encoding='utf-8')
+   result=convert(capture,base/'out',STA,AP)
+   index=json.loads((base/'out/frame_index_private.json').read_text(encoding='utf-8'))
+   self.assertEqual(len(result['rejected_eapol']),1)
+   self.assertEqual(len(index),1)
+   self.assertGreater((base/'out/combined_private.pcap').stat().st_size,24+len(raw))
  def test_synthetic_cannot_be_real_decryption_evidence(self):
   with tempfile.TemporaryDirectory() as td:
    p=Path(td);(p/'handshake_private.json').write_text(json.dumps(dict(handshake=dict(complete_four_way=True))),encoding='utf-8');(p/'frame_index_private.json').write_text('[{"synthetic":true}]',encoding='utf-8')
