@@ -51,4 +51,6 @@
 - 候选 app 大小 905,200 B，SHA256 `FBEF9E4380B1FF453EB1852BAB4D1B053F2C05445FA62426AB4FBECCE7F748D1`。COM10 烧录时 bootloader、app 和 partition table 均报告哈希验证成功；设备返回通用版本标签 `sniffer-8d-a-full-filter`。芯片没有独立 app SHA 回读接口。
 - 12秒被动窗口读回 channel 2 并正常 STOP/FINAL；promiscuous callback 474、CSI callback 4，但4条都不是目标来源，有效目标CSI与CSI_DATA均为0。queue drop、串口写错、截断均0，最低heap 113412B。
 - 因未核实 Jetson 本次窗口中的无线信道，目标CSI为0的原因尚不确定；固件启动和串口控制正常，但目标CSI sanity **未通过**。不进行断开/连回实验。后续先只读核对 Jetson channel，再复测被动CSI；通过后才等待用户手动做一次断开/连回。
+- 采集结束后唯一一次5秒只读SSH查询未取回状态（exit 255），没有重试，也没有向Jetson发送配置或网络操作命令。
+- 用户确认当前不在实验室、Jetson不在现场；后续需等设备回到现场再只读核对信道。当前不安排断开/连回实验。
 - 详细匿名统计见[候选构建、烧录与被动 sanity 报告](../结果/real_poc_8da_candidate_build_flash_sanity_20261021.md)。

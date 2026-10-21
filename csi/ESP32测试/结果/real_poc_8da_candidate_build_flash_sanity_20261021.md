@@ -4,7 +4,7 @@
 
 候选固件已在本机成功构建并写入 ESP32-C5（COM10），esptool 对 bootloader、app 和 partition table 均报告哈希校验成功。设备重启后返回预期的通用固件标签并接受 channel 配置及 MODE 命令。
 
-随后进行的 12 秒被动采集**未通过目标 CSI sanity**：设备在 channel 2 收到空口回调，但有效目标 CSI 为 0。未执行 Jetson SSH、断连、重连、UDP、或任何 Jetson/AP 配置操作。因此本轮不能进入用户手动断开/连回实验。
+随后进行的 12 秒被动采集**未通过目标 CSI sanity**：设备在 channel 2 收到空口回调，但有效目标 CSI 为 0。采集结束后只尝试了一次 5 秒只读 SSH 查询 `iw dev wlan0 link`，返回 exit 255、未取得无线状态；未重试。用户确认目前不在实验室且 Jetson 不在现场，因此本轮不能继续核验网络状态，也不进入用户手动断开/连回实验。
 
 ## ESP-IDF 环境问题与修复方式
 
@@ -28,12 +28,12 @@
 - Promiscuous callback：474（Management 459、Control 0、Data 15、Misc 0）。
 - CSI callback：4；来源目标 0、来源其他 4、有效 channel estimate 0、目标有效 CSI 0、CSI_DATA 导出 0；4 条均归为 legacy PHY，HT CSI 为 0。
 - 资源/串口：queue drop 0、write errors 0、截断 0、空 CSI 0，最低 free heap 113,412 B。
-- 这些计数表明控制面和回调入口有响应，但没有证明 Jetson 的 CSI 接收路径正常。由于本轮没有读取 Jetson 当前无线信道，无法判定目标 CSI 为 0 是 Jetson 当时不在 channel 2、目标无线活动不足，还是固件筛选路径造成。
+- 这些计数表明控制面和回调入口有响应，但没有证明 Jetson 的 CSI 接收路径正常。唯一一次采集后只读查询未取得 Jetson 当前无线信道；目标 CSI 为 0 的原因仍未知，不能区分 Jetson 当时不在 channel 2、目标无线活动不足或固件筛选路径。
 
 ## 后续门禁
 
 1. 不进行 Jetson 断开/连回，不做远程 reassociate，不自动重试。
-2. 先只读确认 Jetson 当前连接和信道；确认处于 channel 2 后，再对同一固件做一次短时被动 sanity。
+2. 等 Jetson 回到现场后，只读确认当前连接和信道；确认处于 channel 2 后，再对同一固件做一次短时被动 sanity。
 3. 只有目标有效 CSI 大于 0，且队列/串口错误与截断为 0，才汇报并等待用户手动执行一次 Wi-Fi 断开/连回。
 
 私有原始流保留在本地 `ESP32测试/结果/real_poc_8da_candidate_passive_sanity_20261021_200849/`；不发布串口原始数据、现场 MAC/IP、凭据或构建二进制。
