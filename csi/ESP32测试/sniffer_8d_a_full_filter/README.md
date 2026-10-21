@@ -43,3 +43,12 @@
 - 仅发出一次用户授权的远程 reassociate，命令返回exit code 1。其后约18秒SSH端口观察44/44可达，没有确认断网；实际是否发生短暂无线状态变化未知。
 - 下一轮改为用户手动控制一个断开/恢复周期：先重新ARM并检查CSI、SSH与Wi-Fi状态，再等用户操作；不远程重试、不自动重连。完整M1–M4通过离线解析确认前，不进入PROBE、UDP或解密。
 - 详细匿名结果见[单次重关联尝试报告](../结果/real_poc_8da_single_reassociate_20261021.md)。
+
+### 20:08 候选构建/烧录与被动 CSI sanity
+
+- 修复构建调用环境：明确使用 ESP-IDF 5.5.5 和 Python 3.11.2 venv。此前 `export.ps1` 被 PATH 中的 Anaconda Python 3.13 启动，IDF 因而推导出不存在的 `idf5.5_py3.13_env`。显式指定 `IDF_PYTHON_ENV_PATH` 并前置 IDF venv 后构建成功。
+- Windows 中文目录下另有 Python 默认 cp936 解码和 GCC 非 ASCII 路径问题；通过 `PYTHONUTF8=1` 与源/配置 SHA 一致的 ASCII 临时构建副本解决，没有改动 Jetson。
+- 候选 app 大小 905,200 B，SHA256 `FBEF9E4380B1FF453EB1852BAB4D1B053F2C05445FA62426AB4FBECCE7F748D1`。COM10 烧录时 bootloader、app 和 partition table 均报告哈希验证成功；设备返回通用版本标签 `sniffer-8d-a-full-filter`。芯片没有独立 app SHA 回读接口。
+- 12秒被动窗口读回 channel 2 并正常 STOP/FINAL；promiscuous callback 474、CSI callback 4，但4条都不是目标来源，有效目标CSI与CSI_DATA均为0。queue drop、串口写错、截断均0，最低heap 113412B。
+- 因未核实 Jetson 本次窗口中的无线信道，目标CSI为0的原因尚不确定；固件启动和串口控制正常，但目标CSI sanity **未通过**。不进行断开/连回实验。后续先只读核对 Jetson channel，再复测被动CSI；通过后才等待用户手动做一次断开/连回。
+- 详细匿名统计见[候选构建、烧录与被动 sanity 报告](../结果/real_poc_8da_candidate_build_flash_sanity_20261021.md)。
