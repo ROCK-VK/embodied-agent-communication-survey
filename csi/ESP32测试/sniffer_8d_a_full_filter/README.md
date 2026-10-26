@@ -74,3 +74,14 @@
 
 - 该轮raw只含一条M3；host parser、单帧PCAP和tshark均识别同一消息。M1/M2/M4在raw日志中无可识别记录，空口缺失与固件候选过滤尚无法区分。
 - 已加入只改变HANDSHAKE_ONLY统计、不改变候选筛选和逐包导出的拒绝原因计数。27项离线回归通过，IDF 5.5.5隔离本机构建通过；尚未烧录。详见[匿名离线分层审计](../结果/real_poc_8da_manual_reconnect_20261026.md)。
+
+## 2026-10-26 HANDSHAKE_ONLY 筛选漏斗计数
+
+后续诊断固件只增加聚合计数，不改变候选 gate、入队条件或 CSI 处理：
+
+- `prom_data`：全部 promiscuous Data callback；`prom_target_related_data`：通过有效 Data header 并且 TA 或 RA 命中目标 STA 的帧；`pair_seen`：精确 Jetson↔AP 方向帧。
+- `hs_up_seen` / `hs_down_seen`：HANDSHAKE_ONLY 中按当前地址判断得到的精确上/下行 pair；Protected/clear-small及新增 `hs_pair_protected`、`hs_pair_unprotected`、`hs_pair_len_le256`、`hs_pair_len_gt256` 统计该 pair 的加密状态和长度分布。
+- `hs_pair_small_accepted`：满足既有精确 pair、未加密、`<=256B` 条件的候选数，不代表 EAPOL。
+- `hs_llc_snap_candidate` 与 `hs_ethertype_888e_candidate`：目标相关、可按 LLC/SNAP 检查的 clear Data 中，分别匹配 SNAP 前缀和 EtherType `0x888e` 的数量；它们是候选特征统计，不替代 host EAPOL-Key 解析。
+- `hs_filter_protected`、`hs_filter_oversize`、`hs_filter_pair_mismatch`、`hs_filter_other`：候选 gate 拒绝分支统计。`raw_enqueued`、`raw_output`、`raw_drop` 为传输阶段计数；M1–M4 由 host parser 对实际 FRAME 记录分类。
+- 固件计数是本次开机以来的累计值；烧录后先重启再开始单一串口采集，便于直接读取本轮计数。`MODE_ACK` 不会清零计数。

@@ -22,6 +22,9 @@ class TestControl8da(unittest.TestCase):
             "prom_cb_total": 500, "prom_data": 300, "prom_mgmt": 150, "prom_ctrl": 40, "prom_misc": 10,
             "hs_up_seen": 4, "hs_down_seen": 3, "hs_up_protected": 1, "hs_down_protected": 1,
             "hs_up_clear_small": 2, "hs_down_clear_small": 1, "hs_filter_protected": 2,
+            "hs_pair_protected": 2, "hs_pair_unprotected": 5,
+            "hs_pair_len_le256": 4, "hs_pair_len_gt256": 3, "hs_pair_small_accepted": 3,
+            "hs_llc_snap_candidate": 1, "hs_ethertype_888e_candidate": 1,
             "hs_filter_oversize": 1, "hs_filter_pair_mismatch": 1, "hs_filter_other": 0,
             "csi_cb_total": 20, "csi_null": 0, "csi_source_target": 12, "csi_source_other": 8,
             "csi_hdr_present": 12, "csi_buf_present": 12, "csi_valid_channel_estimate": 10,
@@ -39,6 +42,9 @@ class TestControl8da(unittest.TestCase):
         c = r['counters']
         self.assertEqual(c['prom_cb_total'], 500)
         self.assertEqual(c['hs_up_clear_small'], 2)
+        self.assertEqual(c['hs_pair_len_gt256'], 3)
+        self.assertEqual(c['hs_llc_snap_candidate'], 1)
+        self.assertEqual(c['hs_ethertype_888e_candidate'], 1)
         self.assertEqual(c['hs_filter_pair_mismatch'], 1)
         self.assertEqual(c['csi_cb_total'], 20)
         self.assertEqual(c['rx_ht'], 18)

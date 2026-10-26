@@ -60,6 +60,8 @@ static atomic_uint pair_seen, uplink_data_cb, downlink_eapol_cb, csi_source_cb;
 // HANDSHAKE_ONLY observability: classify target/AP Data before the raw-candidate gate.
 static atomic_uint hs_up_seen, hs_down_seen, hs_up_protected, hs_down_protected;
 static atomic_uint hs_up_clear_small, hs_down_clear_small;
+static atomic_uint hs_pair_protected, hs_pair_unprotected, hs_pair_len_le256, hs_pair_len_gt256;
+static atomic_uint hs_pair_small_accepted, hs_llc_snap_candidate, hs_ethertype_888e_candidate;
 static atomic_uint hs_filter_protected, hs_filter_oversize, hs_filter_pair_mismatch, hs_filter_other;
 static atomic_uint payload_missing, payload_truncated, prom_dump_gt_sig, prom_dump_eq_sig;
 static atomic_uint raw_drop, csi_drop, raw_enqueued, csi_enqueued, raw_output, csi_output;
@@ -96,6 +98,18 @@ static bool is_eapol(const uint8_t *p,unsigned n,unsigned h) {
     unsigned qos=24+(((fc&0x300)==0x300)?6:0);
     if((fc&0x80) && (p[qos]&0x80)) return false;
     return n>=h+8 && memcmp(p+h,llc,8)==0;
+}
+static bool has_llc_snap_candidate(const uint8_t *p,unsigned n,unsigned h) {
+    static const uint8_t snap[]={0xaa,0xaa,3,0,0,0};
+    uint16_t fc=le16(p);
+    if(fc&0x4000 || fc&0x400 || (le16(p+22)&15)) return false;
+    unsigned qos=24+(((fc&0x300)==0x300)?6:0);
+    if((fc&0x80) && (p[qos]&0x80)) return false;
+    return n>=h+6 && memcmp(p+h,snap,6)==0;
+}
+static bool has_ethertype_888e_candidate(const uint8_t *p,unsigned n,unsigned h) {
+    static const uint8_t ethertype[]={0x88,0x8e};
+    return has_llc_snap_candidate(p,n,h) && n>=h+8 && memcmp(p+h+6,ethertype,2)==0;
 }
 static event_t *take(void) {
     event_t *e=NULL; if(xQueueReceive(free_slots,&e,0)!=pdTRUE) return NULL;
@@ -139,21 +153,32 @@ static void prom_cb(void *buf,wifi_promiscuous_pkt_type_t kind) {
     unsigned mode=atomic_load(&capture_mode);
     uint16_t fc=le16(p->payload);
     bool eapol=is_eapol(p->payload,n,h);
+    bool llc_snap_candidate=has_llc_snap_candidate(p->payload,n,h);
+    bool ethertype_888e_candidate=has_ethertype_888e_candidate(p->payload,n,h);
     // Keep target-related EAPOL independent of the configured AP BSSID; host validation remains strict.
     // Only clear, bounded frames from the exact target/AP pair enter the diagnostic path.
     bool pair_small=(mode==MODE_HANDSHAKE && (up||down) && n<=CANDIDATE_MAX && !(fc&0x4000));
     if(mode==MODE_HANDSHAKE) {
+        if(llc_snap_candidate) atomic_fetch_add(&hs_llc_snap_candidate,1);
+        if(ethertype_888e_candidate) atomic_fetch_add(&hs_ethertype_888e_candidate,1);
         if(up) atomic_fetch_add(&hs_up_seen,1);
         if(down) atomic_fetch_add(&hs_down_seen,1);
         if(up||down) {
+            if(n<=CANDIDATE_MAX) atomic_fetch_add(&hs_pair_len_le256,1);
+            else atomic_fetch_add(&hs_pair_len_gt256,1);
             if(fc&0x4000) {
+                atomic_fetch_add(&hs_pair_protected,1);
                 if(up) atomic_fetch_add(&hs_up_protected,1);
                 else atomic_fetch_add(&hs_down_protected,1);
-            } else if(n<=CANDIDATE_MAX) {
-                if(up) atomic_fetch_add(&hs_up_clear_small,1);
-                else atomic_fetch_add(&hs_down_clear_small,1);
+            } else {
+                atomic_fetch_add(&hs_pair_unprotected,1);
+                if(n<=CANDIDATE_MAX) {
+                    if(up) atomic_fetch_add(&hs_up_clear_small,1);
+                    else atomic_fetch_add(&hs_down_clear_small,1);
+                }
             }
         }
+        if(pair_small) atomic_fetch_add(&hs_pair_small_accepted,1);
     }
     if(!eapol && !pair_small) {
         if(mode==MODE_HANDSHAKE) {
@@ -281,6 +306,8 @@ static void control(unsigned kind){
  "\"free_heap\":%u,\"min_free_heap\":%u,\"queue_depth\":%u,\"queue_pending\":%u,\"candidate_max\":%u,\"channel\":%u,\"synth_rate\":%u,\"synth_seconds\":%u,\"synthetic_candidates\":%u,\"synthetic_large\":%u,\"synthetic_eapol\":%u,\"wire_bytes\":%u,"
   "\"prom_cb_total\":%u,\"prom_data\":%u,\"prom_mgmt\":%u,\"prom_ctrl\":%u,\"prom_misc\":%u,\"prom_target_related_data\":%u,\"pair_seen\":%u,\"pair_frames\":%u,"
   "\"hs_up_seen\":%u,\"hs_down_seen\":%u,\"hs_up_protected\":%u,\"hs_down_protected\":%u,\"hs_up_clear_small\":%u,\"hs_down_clear_small\":%u,"
+   "\"hs_pair_protected\":%u,\"hs_pair_unprotected\":%u,\"hs_pair_len_le256\":%u,\"hs_pair_len_gt256\":%u,\"hs_pair_small_accepted\":%u,"
+   "\"hs_llc_snap_candidate\":%u,\"hs_ethertype_888e_candidate\":%u,"
   "\"hs_filter_protected\":%u,\"hs_filter_oversize\":%u,\"hs_filter_pair_mismatch\":%u,\"hs_filter_other\":%u,"
  "\"csi_cb_total\":%u,\"csi_null\":%u,\"csi_source_target\":%u,\"csi_source_other\":%u,\"csi_hdr_present\":%u,\"csi_buf_present\":%u,\"csi_valid_channel_estimate\":%u,\"csi_rxstate_ok\":%u,\"csi_target_valid\":%u,"
  "\"rx_11b\":%u,\"rx_legacy\":%u,\"rx_ht\":%u,\"rx_vht\":%u,\"rx_other\":%u,"
@@ -292,6 +319,8 @@ static void control(unsigned kind){
  (unsigned)esp_get_free_heap_size(),(unsigned)esp_get_minimum_free_heap_size(),DEPTH,(unsigned)uxQueueMessagesWaiting(events),CANDIDATE_MAX,channel,synth_rate,synth_seconds,U(synthetic_candidates),U(synthetic_large),U(synthetic_eapol),U(wire_bytes),
   U(prom_total),U(prom_data_all),U(prom_mgmt_all),U(prom_ctrl_all),U(prom_misc_all),U(prom_target_related_data),U(pair_seen),U(pair_frames),
   U(hs_up_seen),U(hs_down_seen),U(hs_up_protected),U(hs_down_protected),U(hs_up_clear_small),U(hs_down_clear_small),
+   U(hs_pair_protected),U(hs_pair_unprotected),U(hs_pair_len_le256),U(hs_pair_len_gt256),U(hs_pair_small_accepted),
+   U(hs_llc_snap_candidate),U(hs_ethertype_888e_candidate),
   U(hs_filter_protected),U(hs_filter_oversize),U(hs_filter_pair_mismatch),U(hs_filter_other),
  U(csi_cb_total),U(csi_null),U(csi_source_target),U(csi_source_other),U(csi_hdr_present),U(csi_buf_present),U(csi_valid_channel_estimate),U(csi_rxstate_ok),U(csi_target_valid),
  U(rx_11b),U(rx_legacy),U(rx_ht),U(rx_vht),U(rx_other),
