@@ -1,4 +1,4 @@
-// Gate A: target uplink Data + pair EAPOL only; no ordinary downlink raw export.
+// CSI-centric HANDSHAKE_DIAG; legacy HANDSHAKE/PROBE modes remain for controlled use.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,7 +41,7 @@ static event_t *pool;
 static QueueHandle_t free_slots, events;
 static uint8_t target[6], ap[6];
 static unsigned channel, serial_id;
-enum { MODE_STOP=0, MODE_HANDSHAKE=1, MODE_PROBE=2 };
+enum { MODE_STOP=0, MODE_HANDSHAKE=1, MODE_PROBE=2, MODE_HANDSHAKE_DIAG=3 };
 static atomic_bool synthetic_active;
 static atomic_uint capture_mode, mode_epoch;
 static atomic_uint target_csi_seen,candidate_seen,large_frame_filtered,filter_other,handshake_data_count;
@@ -51,7 +51,7 @@ static bool configured,synthetic_only,rf_capture_enabled;
 static unsigned synth_rate,synth_seconds;
 static const char *control_event="CONFIGURED";
 #define CANDIDATE_MAX 256
-static const char *mode_name(void){unsigned m=atomic_load(&capture_mode);return m==MODE_HANDSHAKE?"HANDSHAKE_ONLY":m==MODE_PROBE?"PROBE_CAPTURE":"STOP";}
+static const char *mode_name(void){unsigned m=atomic_load(&capture_mode);return m==MODE_HANDSHAKE?"HANDSHAKE_ONLY":m==MODE_PROBE?"PROBE_CAPTURE":m==MODE_HANDSHAKE_DIAG?"HANDSHAKE_DIAG":"STOP";}
 
 static atomic_uint prom_total, pair_frames, eapol_frames, csi_total, target_csi;
 static atomic_uint prom_data_all, prom_mgmt_all, prom_ctrl_all, prom_misc_all;
@@ -72,6 +72,11 @@ static atomic_uint csi_cb_total, csi_null, csi_source_target, csi_source_other;
 static atomic_uint csi_hdr_present, csi_buf_present;
 static atomic_uint csi_valid_channel_estimate, csi_rxstate_ok, csi_target_valid;
 static atomic_uint rx_11b, rx_legacy, rx_ht, rx_vht, rx_other;
+// CSI-centric HANDSHAKE_DIAG keeps the selected 802.11 frame and CSI in one record.
+static atomic_uint diag_pair_seen, diag_uplink, diag_downlink, diag_protected, diag_clear;
+static atomic_uint diag_len_le256, diag_len_gt256, diag_llc_snap, diag_ethertype_888e;
+static atomic_uint diag_candidate_enqueued, diag_reject_layout, diag_reject_length;
+static atomic_uint diag_reject_protected, diag_reject_llc, diag_reject_ethertype, diag_invalid_csi;
 static uint8_t actual_chan;
 static wifi_second_chan_t actual_sec;
 static wifi_mode_t actual_mode;
@@ -151,6 +156,8 @@ static void prom_cb(void *buf,wifi_promiscuous_pkt_type_t kind) {
     if(up||down)atomic_fetch_add(&pair_seen,1);
     if(!target_related)return;
     unsigned mode=atomic_load(&capture_mode);
+    // CSI-centric diagnostics use CSI_DATA as the frame source; promisc only counts.
+    if(mode==MODE_HANDSHAKE_DIAG)return;
     uint16_t fc=le16(p->payload);
     bool eapol=is_eapol(p->payload,n,h);
     bool llc_snap_candidate=has_llc_snap_candidate(p->payload,n,h);
@@ -200,6 +207,90 @@ static void prom_cb(void *buf,wifi_promiscuous_pkt_type_t kind) {
     if(copy<n)atomic_fetch_add(&raw_truncated,1);
     memcpy(e->data,p->payload,copy);enqueue(e);
 }
+static void csi_diag_cb(wifi_csi_info_t *p) {
+    wifi_pkt_rx_ctrl_t meta=p->rx_ctrl;
+    if(!p->hdr){atomic_fetch_add(&diag_reject_layout,1);return;}
+    uint8_t first24[24];memcpy(first24,p->hdr,sizeof(first24));
+    unsigned hl=header_length(first24,UINT16_MAX);
+    if(hl<24||hl>36){atomic_fetch_add(&diag_reject_layout,1);return;}
+    uint8_t hdr[36];memcpy(hdr,p->hdr,hl);
+    if(header_length(hdr,hl)!=hl){atomic_fetch_add(&diag_reject_layout,1);return;}
+
+    uint16_t fc=le16(hdr);
+    bool tods=(fc&0x0100)!=0, fromds=(fc&0x0200)!=0;
+    bool up=tods&&!fromds&&same(hdr+4,ap)&&same(hdr+10,target);
+    bool down=!tods&&fromds&&same(hdr+4,target)&&same(hdr+10,ap);
+    if(!up&&!down)return; // Exact Jetson↔AP pair only; no third-party frames are exported.
+    atomic_fetch_add(&diag_pair_seen,1);
+    if(up)atomic_fetch_add(&diag_uplink,1);else atomic_fetch_add(&diag_downlink,1);
+
+    if(meta.rx_channel_estimate_info_vld)atomic_fetch_add(&csi_valid_channel_estimate,1);
+    if(meta.rx_state==0)atomic_fetch_add(&csi_rxstate_ok,1);
+    bool csi_valid=meta.rx_channel_estimate_info_vld&&meta.rx_state==0&&p->buf&&p->len;
+    if(csi_valid){
+        atomic_fetch_add(&csi_target_valid,1);
+        atomic_fetch_add(&target_csi_seen,1);
+        atomic_fetch_add(&csi_buf_present,1);
+    }else{
+        atomic_fetch_add(&diag_invalid_csi,1);
+        if(!p->buf||!p->len)atomic_fetch_add(&csi_empty,1);
+    }
+
+    if(fc&0x4000){atomic_fetch_add(&diag_protected,1);atomic_fetch_add(&diag_reject_protected,1);return;}
+    atomic_fetch_add(&diag_clear,1);
+    if(p->payload_len>CANDIDATE_MAX){atomic_fetch_add(&diag_len_gt256,1);atomic_fetch_add(&diag_reject_length,1);return;}
+    atomic_fetch_add(&diag_len_le256,1);
+    if(!p->payload){atomic_fetch_add(&diag_reject_layout,1);return;}
+    if((fc&0x0400)||(le16(hdr+22)&15)){atomic_fetch_add(&diag_reject_layout,1);return;}
+    unsigned qosoff=24;
+    if((fc&0x0080)&&(hdr[qosoff]&0x80)){atomic_fetch_add(&diag_reject_layout,1);return;}
+
+    intptr_t delta=(intptr_t)(uintptr_t)p->payload-(intptr_t)(uintptr_t)p->hdr;
+    if(delta<24||delta>(intptr_t)hl){atomic_fetch_add(&diag_reject_layout,1);return;}
+    unsigned overlap=hl-(unsigned)delta;
+    if(p->payload_len<overlap+8){atomic_fetch_add(&diag_reject_layout,1);return;}
+    if(overlap&&memcmp(hdr+(unsigned)delta,p->payload,overlap)!=0){
+        atomic_fetch_add(&diag_reject_layout,1);return;
+    }
+    const uint8_t *llc=p->payload+overlap;
+    static const uint8_t snap[]={0xaa,0xaa,3,0,0,0};
+    if(memcmp(llc,snap,sizeof(snap))!=0){atomic_fetch_add(&diag_reject_llc,1);return;}
+    atomic_fetch_add(&diag_llc_snap,1);
+    if(p->payload_len<overlap+8||llc[6]!=0x88||llc[7]!=0x8e){
+        atomic_fetch_add(&diag_reject_ethertype,1);return;
+    }
+    atomic_fetch_add(&diag_ethertype_888e,1);
+
+    unsigned origp=p->payload_len,origc=p->len;
+    unsigned base=20+sizeof(meta)+hl;
+    if(base+origp>CAP){atomic_fetch_add(&diag_reject_length,1);return;}
+    unsigned cc=0;
+    if(p->buf&&origc){
+        unsigned limit=CAP-base-origp;
+        if(limit>CSI_CAP)limit=CSI_CAP;
+        cc=origc>limit?limit:origc;
+    }
+    if(origc!=cc)atomic_fetch_add(&csi_truncated,1);
+
+    event_t *e=take();if(!e){atomic_fetch_add(&csi_drop,1);return;}
+    memcpy(e->data+20,&meta,sizeof(meta));
+    memcpy(e->data+20+sizeof(meta),hdr,hl);
+    memcpy(e->data+base,p->payload,origp);
+    if(cc)memcpy(e->data+base+origp,p->buf,cc);
+    put16(e->data,hl);put16(e->data+2,origp);put16(e->data+4,origp);
+    put16(e->data+6,origc);put16(e->data+8,cc);put16(e->data+10,sizeof(meta));
+    put16(e->data+12,meta.sig_len);put16(e->data+14,meta.dump_len);
+    put32(e->data+16,(uint32_t)(int32_t)delta);
+    common(e,CSI,&meta,hdr);
+    uint16_t flags=(up?UPLINK:0)|((origc!=cc)?TRUNCATED:0);
+    put16(e->header+32,flags);
+    unsigned copied=base+origp+cc,original=base+origp+origc;
+    put16(e->header+34,original>UINT16_MAX?UINT16_MAX:original);
+    put16(e->header+36,copied);
+    memcpy(e->header+52,p->mac,6);put16(e->header+58,p->rx_seq);
+    e->header[60]=meta.rx_channel_estimate_info_vld;e->header[61]=p->first_word_invalid;
+    enqueue(e);atomic_fetch_add(&diag_candidate_enqueued,1);
+}
 static void csi_cb(void *ctx,wifi_csi_info_t *p) {
     (void)ctx;
     atomic_fetch_add(&csi_cb_total, 1);
@@ -217,12 +308,17 @@ static void csi_cb(void *ctx,wifi_csi_info_t *p) {
     else if(fmt == 3) atomic_fetch_add(&rx_vht, 1);
     else atomic_fetch_add(&rx_other, 1);
 
+    unsigned mode=atomic_load(&capture_mode);
     if(!same(p->mac,target)){
         atomic_fetch_add(&csi_source_other, 1);
-        return;
+    } else {
+        atomic_fetch_add(&csi_source_target, 1);
+        atomic_fetch_add(&csi_source_cb,1);
     }
-    atomic_fetch_add(&csi_source_target, 1);
-    atomic_fetch_add(&csi_source_cb,1);
+
+    // Select both directions from 802.11 RA/TA and DS bits in HANDSHAKE_DIAG.
+    if(mode==MODE_HANDSHAKE_DIAG){csi_diag_cb(p);return;}
+    if(!same(p->mac,target))return;
 
     if(!p->buf||!p->len){
         atomic_fetch_add(&csi_empty,1);
@@ -245,7 +341,7 @@ static void csi_cb(void *ctx,wifi_csi_info_t *p) {
     atomic_fetch_add(&csi_target_valid, 1);
     atomic_fetch_add(&target_csi_seen,1);
 
-    if(atomic_load(&capture_mode)==MODE_HANDSHAKE){atomic_fetch_add(&handshake_data_count,1);return;}
+    if(mode==MODE_HANDSHAKE){atomic_fetch_add(&handshake_data_count,1);return;}
     if(!p->payload || !p->payload_len){atomic_fetch_add(&filter_other,1);return;}
     if(p->payload_len>CANDIDATE_MAX){atomic_fetch_add(&large_frame_filtered,1);return;}
     if(20+sizeof(meta)+hl+p->payload_len+p->len>CAP){atomic_fetch_add(&filter_other,1);return;}
@@ -310,6 +406,7 @@ static void control(unsigned kind){
    "\"hs_llc_snap_candidate\":%u,\"hs_ethertype_888e_candidate\":%u,"
   "\"hs_filter_protected\":%u,\"hs_filter_oversize\":%u,\"hs_filter_pair_mismatch\":%u,\"hs_filter_other\":%u,"
  "\"csi_cb_total\":%u,\"csi_null\":%u,\"csi_source_target\":%u,\"csi_source_other\":%u,\"csi_hdr_present\":%u,\"csi_buf_present\":%u,\"csi_valid_channel_estimate\":%u,\"csi_rxstate_ok\":%u,\"csi_target_valid\":%u,"
+  "\"diag_pair_seen\":%u,\"diag_uplink\":%u,\"diag_downlink\":%u,\"diag_protected\":%u,\"diag_clear\":%u,\"diag_len_le256\":%u,\"diag_len_gt256\":%u,\"diag_llc_snap\":%u,\"diag_ethertype_888e\":%u,\"diag_candidate_enqueued\":%u,\"diag_reject_layout\":%u,\"diag_reject_length\":%u,\"diag_reject_protected\":%u,\"diag_reject_llc\":%u,\"diag_reject_ethertype\":%u,\"diag_invalid_csi\":%u,"
  "\"rx_11b\":%u,\"rx_legacy\":%u,\"rx_ht\":%u,\"rx_vht\":%u,\"rx_other\":%u,"
  "\"actual_channel\":%u,\"actual_mode\":%u,\"channel_readback_ok\":%s}",
  kind==7?control_event:kind==FINAL?"FINAL":"STATS",mode_name(),U(mode_epoch),synthetic_only?"true":"false",rf_capture_enabled?"true":"false",
@@ -323,6 +420,7 @@ static void control(unsigned kind){
    U(hs_llc_snap_candidate),U(hs_ethertype_888e_candidate),
   U(hs_filter_protected),U(hs_filter_oversize),U(hs_filter_pair_mismatch),U(hs_filter_other),
  U(csi_cb_total),U(csi_null),U(csi_source_target),U(csi_source_other),U(csi_hdr_present),U(csi_buf_present),U(csi_valid_channel_estimate),U(csi_rxstate_ok),U(csi_target_valid),
+  U(diag_pair_seen),U(diag_uplink),U(diag_downlink),U(diag_protected),U(diag_clear),U(diag_len_le256),U(diag_len_gt256),U(diag_llc_snap),U(diag_ethertype_888e),U(diag_candidate_enqueued),U(diag_reject_layout),U(diag_reject_length),U(diag_reject_protected),U(diag_reject_llc),U(diag_reject_ethertype),U(diag_invalid_csi),
  U(rx_11b),U(rx_legacy),U(rx_ht),U(rx_vht),U(rx_other),
  (unsigned)actual_chan,(unsigned)actual_mode,channel_readback_ok?"true":"false");
  configASSERT(n>0&&n<CAP);put16(e.header+34,n);put16(e.header+36,n);put64(e.header+16,esp_timer_get_time());emit(&e);

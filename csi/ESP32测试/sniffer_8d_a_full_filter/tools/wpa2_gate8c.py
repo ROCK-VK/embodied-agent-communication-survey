@@ -34,7 +34,9 @@ def parse_eapol(raw, target, ap):
     if h['protected'] or h['fragment'] or h['more_fragments'] or h['amsdu']:
         raise ValueError('not a complete clear unfragmented EAPOL MPDU')
     b=raw[h['header_len']:]
-    if b[:8]!=bytes.fromhex('aaaa03000000888e'):raise ValueError('not LLC/SNAP EAPOL')
+    if len(b)<6 or b[:6]!=bytes.fromhex('aaaa03000000'):raise ValueError('not LLC/SNAP')
+    if len(b)<8:raise ValueError('truncated LLC/SNAP EtherType')
+    if b[6:8]!=bytes.fromhex('888e'):raise ValueError('not EtherType 0x888e')
     e=b[8:]
     if len(e)<4 or e[1]!=3:raise ValueError('not EAPOL-Key')
     n=int.from_bytes(e[2:4],'big')
@@ -49,9 +51,45 @@ def parse_eapol(raw, target, ap):
         elif ta==target and not ack and hasmic and not secure and not install and any(nonce) and any(mic):msg=2
         elif ta==ap and ack and hasmic and install and secure and any(nonce) and any(mic):msg=3
         elif ta==target and not ack and hasmic and secure and not install and not any(nonce) and any(mic):msg=4
+    direction='jetson_to_ap' if ta==target and ra==ap else 'ap_to_jetson'
     return dict(message=msg,key_info=info,descriptor=e[4],descriptor_version=info&7,replay_counter=replay,
                 nonce=nonce.hex(),mic=mic.hex(),eapol_length=len(e),trailing_bytes=len(b)-8-len(e),
-                ta=ta,ra=ra,seq_ctrl=h['seq_ctrl'],retry=h['retry'])
+                ta=ta,ra=ra,direction=direction,to_ds=h['to_ds'],from_ds=h['from_ds'],
+                subtype=h['subtype'],header_len=h['header_len'],seq_ctrl=h['seq_ctrl'],retry=h['retry'])
+
+
+def inspect_llc_snap(raw):
+    """Return clear Data LLC/SNAP metadata without assuming the EtherType."""
+    h=parse_header(raw)
+    if h['protected'] or h['fragment'] or h['more_fragments'] or h['amsdu']:
+        raise ValueError('not a complete clear unfragmented Data MPDU')
+    body=raw[h['header_len']:]
+    if len(body)<6 or body[:6]!=bytes.fromhex('aaaa03000000'):
+        raise ValueError('not LLC/SNAP')
+    if len(body)<8:raise ValueError('truncated LLC/SNAP EtherType')
+    return dict(header=h,llc_snap=True,ether_type=int.from_bytes(body[6:8],'big'),body_length=len(body))
+
+
+def classify_record(r,target,ap):
+    """Classify one FRAME or CSI_DATA; CSI validity stays attached to its own record."""
+    if r['event']=='CSI_DATA':
+        raw=assemble_api_parts(r)
+    elif r['event'] in ('RAW','FRAME'):
+        if r.get('truncated'):raise ValueError('truncated FRAME record')
+        raw=bytes.fromhex(r['raw_hex'])
+    else:raise ValueError('unsupported record event')
+    result=parse_eapol(raw,target,ap)
+    csi_record=r['event']=='CSI_DATA'
+    csi_complete=bool(csi_record and r.get('csi_copied')==r.get('csi_len'))
+    result.update(source_event=r['event'],record_serial=r['record_serial'],rx_seq=r.get('rx_seq'),
+                  same_record_csi=csi_record,csi_present=bool(csi_record and r.get('csi_copied',0)>0),
+                  csi_len=r.get('csi_len',0) if csi_record else 0,
+                  csi_complete=csi_complete,
+                  csi_valid=bool(csi_complete and r.get('csi_len',0)>0 and r.get('estimate_valid')==1 and r.get('rx_state')==0),
+                  first_word_invalid=r.get('first_word_invalid') if csi_record else None,
+                  estimate_valid=r.get('estimate_valid') if csi_record else None,
+                  rx_state=r.get('rx_state') if csi_record else None)
+    return result,raw
 
 
 def handshake(records):
@@ -77,15 +115,18 @@ def convert(capture,out,target,ap,live=False):
     frames=[];eapol=[];rejected=[]
     for r in rows:
         if r['event'] not in ('CSI_DATA','RAW','FRAME'):continue
-        if r['truncated']:raise ValueError('truncated frame/CSI record')
-        if r['event']=='CSI_DATA':raw=assemble_api_parts(r)
-        else:
-            raw=bytes.fromhex(r['raw_hex'])
-            try:
-                e=parse_eapol(raw,target,ap)
-                e['record_serial']=r['record_serial'];eapol.append(e)
+        if r['event']=='CSI_DATA':
+            try:raw=assemble_api_parts(r)
             except ValueError as exc:
-                rejected.append(dict(record_serial=r['record_serial'],reason=str(exc)))
+                rejected.append(dict(record_serial=r['record_serial'],source_event=r['event'],reason=str(exc)))
+                continue
+        else:
+            if r.get('truncated'):raise ValueError('truncated FRAME record')
+            raw=bytes.fromhex(r['raw_hex'])
+        try:
+            e,_=classify_record(r,target,ap);eapol.append(e)
+        except ValueError as exc:
+            rejected.append(dict(record_serial=r['record_serial'],source_event=r['event'],reason=str(exc)))
         frames.append((r,raw))
     index=[]
     with (out/'combined_private.pcap').open('xb') as f:
@@ -98,7 +139,7 @@ def convert(capture,out,target,ap,live=False):
             f.write(struct.pack('<IIII',ns//10**9,ns%10**9,len(packet),len(packet)));f.write(packet)
             h=r['mac_header'];entry={k:r[k] for k in ('record_serial','timestamp','seq_ctrl','format','rssi','event')}
             entry.update(synthetic=bool(r['flags']&16),pcap_frame_number=num,retry=h['retry'],fragment=h['fragment'],more_fragments=h['more_fragments'],amsdu=h['amsdu'])
-            if r['event']=='CSI_DATA':entry.update(csi_len=r['csi_len'],csi_sha256=hashlib.sha256(bytes.fromhex(r['csi_hex'])).hexdigest(),valid=r['estimate_valid'],rx_state=r['rx_state'],first_word_invalid=r['first_word_invalid'])
+            if r['event']=='CSI_DATA':entry.update(rx_seq=r['rx_seq'],csi_len=r['csi_len'],csi_copied=r['csi_copied'],csi_sha256=hashlib.sha256(bytes.fromhex(r['csi_hex'])).hexdigest(),valid=r['estimate_valid'],csi_valid=bool(r['csi_valid']),rx_state=r['rx_state'],first_word_invalid=r['first_word_invalid'])
             index.append(entry)
     result=dict(handshake=handshake(eapol),eapol_records=eapol,rejected_eapol=rejected,transport=transport,
                 atomic_records=sum(r['event']=='CSI_DATA' for r in rows),live_snapshot=live,

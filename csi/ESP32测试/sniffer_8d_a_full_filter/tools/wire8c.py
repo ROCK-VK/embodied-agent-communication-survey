@@ -20,12 +20,19 @@ def mac(b): return ':'.join(f'{x:02x}' for x in b)
 
 
 def assemble_api_parts(r):
-    """Union of explicitly overlapping API pointer ranges; never guess tail offsets."""
+    """Rebuild a complete MPDU from CSI callback pointer ranges; reject gaps/truncation."""
     h=bytes.fromhex(r['hdr_hex']);p=bytes.fromhex(r['payload_hex']);delta=r['payload_minus_hdr']
+    if len(h)!=r['hdr_len']:raise ValueError('CSI header length mismatch')
+    if len(p)!=r['payload_copied']:raise ValueError('CSI payload copy length mismatch')
+    if r['payload_copied']!=r['payload_len']:raise ValueError('truncated CSI frame payload')
     if not 24<=delta<=len(h):raise ValueError('API pointer gap/unknown layout')
     overlap=len(h)-delta
     if h[delta:]!=p[:overlap]:raise ValueError('API overlapping bytes disagree')
-    return h+p[overlap:]
+    raw=h+p[overlap:]
+    if len(raw)!=delta+len(p):raise ValueError('reconstructed CSI frame length mismatch')
+    parsed=parse_header(raw)
+    if parsed['header_len']!=len(h):raise ValueError('reconstructed MAC header length mismatch')
+    return raw
 
 
 def encode(kind, payload=b'', *, serial=1, timestamp=0, mono_us=0, fc=0,
@@ -76,7 +83,8 @@ class Decoder:
                 r.update(hdr_len=hl,payload_len=po,payload_copied=pc,csi_len=co,csi_copied=cc,
                          rx_ctrl_len=ml,wire_sig_len=ws,wire_dump_len=wd,payload_minus_hdr=delta,
                          rx_ctrl_hex=meta.hex(),hdr_hex=hdr.hex(),payload_hex=body.hex(),csi_hex=csi.hex(),
-                         mac_header=parse_header(hdr),native_callback_binding=True,truncated=bool(flags&TRUNCATED))
+                         mac_header=parse_header(hdr),native_callback_binding=True,truncated=bool(flags&TRUNCATED),
+                         payload_complete=(pc==po),csi_complete=(cc==co),csi_valid=bool(cc==co and co>0 and valid==1 and state==0))
                 if r['mac_header']['fc']!=fc or r['mac_header']['seq_ctrl']!=seq or r['mac_header']['ta']!=r['ta'] or r['mac_header']['ra']!=r['ra']:
                     self.counts['raw_metadata_conflict']+=1;r['raw_metadata_conflict']=True
             elif kind in (RAW,CSI):

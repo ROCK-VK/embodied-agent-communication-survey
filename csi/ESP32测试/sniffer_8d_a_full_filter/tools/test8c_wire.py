@@ -48,6 +48,7 @@ class AtomicTests(unittest.TestCase):
     def test_api_pointer_overlap_not_guessed(self):
         r=Decoder().feed(sample())[0];expected=bytes.fromhex(r['hdr_hex']+r['payload_hex'])
         r['payload_hex']=r['hdr_hex'][-4:]+r['payload_hex'];r['payload_minus_hdr']=24
+        r['payload_len']+=2;r['payload_copied']+=2
         self.assertEqual(assemble_api_parts(r),expected)
         r['payload_hex']='ffff'+r['payload_hex'][4:]
         with self.assertRaises(ValueError):assemble_api_parts(r)

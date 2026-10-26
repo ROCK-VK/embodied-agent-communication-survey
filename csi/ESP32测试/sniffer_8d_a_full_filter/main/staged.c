@@ -63,7 +63,7 @@ void app_main(void){
  ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0,2048,16384,0,NULL,0));esp_vfs_dev_uart_use_driver(UART_NUM_0);tx_mutex=xSemaphoreCreateRecursiveMutex();configASSERT(tx_mutex);
  uint32_t actual;ESP_ERROR_CHECK(uart_get_baudrate(UART_NUM_0,&actual));
  wifi_pkt_rx_ctrl_t sm={0},dm={0};sm.sig_len=0x3fff;dm.dump_len=0x3fff;
- printf("{\"event\":\"READY\",\"version\":\"sniffer-8d-a-full-filter\",\"baud\":%u,\"rx_ctrl_size\":%u,\"candidate_max\":%u,\"sig_first_byte\":%u,\"dump_first_byte\":%u,\"mac_version\":%u,\"rf_capture_enabled\":false}\n",(unsigned)actual,(unsigned)sizeof(wifi_pkt_rx_ctrl_t),CANDIDATE_MAX,first_set(&sm),first_set(&dm),CONFIG_SOC_WIFI_MAC_VERSION_NUM);
+  printf("{\"event\":\"READY\",\"version\":\"sniffer-8d-csi-centric\",\"baud\":%u,\"rx_ctrl_size\":%u,\"candidate_max\":%u,\"sig_first_byte\":%u,\"dump_first_byte\":%u,\"mac_version\":%u,\"rf_capture_enabled\":false}\n",(unsigned)actual,(unsigned)sizeof(wifi_pkt_rx_ctrl_t),CANDIDATE_MAX,first_set(&sm),first_set(&dm),CONFIG_SOC_WIFI_MAC_VERSION_NUM);
  char line[180];unsigned baud,ch,m[6],a[6],rate,seconds;
  for(;;){
   if(!fgets(line,sizeof(line),stdin)){vTaskDelay(1);continue;}
@@ -75,9 +75,9 @@ void app_main(void){
   }else if(!configured&&sscanf(line,"CFG,%u,%x:%x:%x:%x:%x:%x,%x:%x:%x:%x:%x:%x",&ch,&m[0],&m[1],&m[2],&m[3],&m[4],&m[5],&a[0],&a[1],&a[2],&a[3],&a[4],&a[5])==13&&ch>0&&ch<200){
    bool ok=true;for(unsigned i=0;i<6;i++)if(m[i]>255||a[i]>255)ok=false;
    if(ok){channel=ch;for(unsigned i=0;i<6;i++){target[i]=m[i];ap[i]=a[i];}configure(false);}
-  }else if(configured&&(!strcmp(line,"MODE HANDSHAKE")||!strcmp(line,"MODE PROBE")||!strcmp(line,"MODE STOP"))){
+  }else if(configured&&(!strcmp(line,"MODE HANDSHAKE")||!strcmp(line,"MODE HANDSHAKE_DIAG")||!strcmp(line,"MODE PROBE")||!strcmp(line,"MODE STOP"))){
    if(atomic_load(&synthetic_active)&&strcmp(line,"MODE STOP")){control_event="BUSY";control(7);continue;}
-   change_mode(!strcmp(line,"MODE HANDSHAKE")?MODE_HANDSHAKE:!strcmp(line,"MODE PROBE")?MODE_PROBE:MODE_STOP);
+   change_mode(!strcmp(line,"MODE HANDSHAKE")?MODE_HANDSHAKE:!strcmp(line,"MODE HANDSHAKE_DIAG")?MODE_HANDSHAKE_DIAG:!strcmp(line,"MODE PROBE")?MODE_PROBE:MODE_STOP);
   }else if(configured&&synthetic_only&&!atomic_load(&synthetic_active)&&atomic_load(&capture_mode)!=MODE_STOP&&sscanf(line,"SYNTH %u %u",&rate,&seconds)==2&&rate>0&&rate<=200&&seconds>0&&seconds<=30){
    synth_rate=rate;synth_seconds=seconds;atomic_store(&synthetic_active,true);atomic_store(&synth_task_running,true);control_event="SYNTH_ACK";control(7);configASSERT(xTaskCreate(synth_task,"synthetic_callbacks",6144,NULL,6,NULL)==pdPASS);
   }else if(configured){control_event="ERROR";control(7);}

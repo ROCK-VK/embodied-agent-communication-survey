@@ -1,6 +1,53 @@
-# sniffer-8d-a full promiscuous filter diagnostic
+# sniffer-8d CSI-centric handshake diagnostic
 
-基于 sniffer-8c-staged 建立的单变量 A/B 诊断独立固件版本（ESP32-C5 / ESP-IDF 5.5.5）。
+ESP32-C5 / ESP-IDF 5.5.5。当前有效固件版本为 `sniffer-8d-csi-centric`。本版本把 CSI callback 自带的 802.11 `hdr/payload` 与 CSI 合并为同一条 `CSI_DATA` 原子记录；promiscuous callback 在 `HANDSHAKE_DIAG` 中只计数，不导出 FRAME，也不再参与跨 callback 配对。
+
+## 当前主线：CSI-centric `HANDSHAKE_DIAG`
+
+- CSI callback 从 MAC header 的 ToDS/FromDS、RA、TA 选择精确 Jetson↔AP 上下行；不再只依赖 `wifi_csi_info_t.mac`，也不导出第三方帧。
+- 对目标 pair 统计 Protected、clear、长度、LLC/SNAP 与 EtherType `0x888e`。只将 clear、未分片、非 A-MSDU、长度不超过256B、能通过 header/payload overlap 检查且 EtherType 为 `0x888e` 的候选导出。
+- 每条导出 `CSI_DATA` 保留同一 callback 的 `rx_ctrl`、header、API payload、`rx_seq`、CSI bytes、CSI valid/state/first-word-invalid 字段。即使估计无效或 CSI buffer 缺失，也保留可识别的 EAPOL frame，host 会标为 CSI 无效；不会用其他 callback 补齐。
+- 不强制 CSI callback 的 `mac` 等于 Jetson，避免丢掉 AP→Jetson M1/M3；以 802.11 header 的精确 STA/AP 地址和 DS 位判断方向。
+- `wpa2_gate8c.py` 先用 `wire8c.assemble_api_parts()` 严格校验并重建 CSI callback 的重叠指针区间，再运行与 FRAME 相同的 EAPOL-Key 解析。报告中的 `source_event`, `direction`, `record_serial`, `rx_seq`, `key_info`, `replay_counter` 和 `same_record_csi/csi_valid` 直接绑定在同一记录上。
+- 原 FRAME/RAW EAPOL parser 保留；CSI_DATA 主路径不要求 promiscuous 抓全4-way。PCAP和握手材料输出是本地私有数据，不提交公开仓库。
+
+### 采集命令
+
+先做12秒被动 sanity（不要求用户断开 Jetson）：
+
+```powershell
+$TargetMac = "替换为本地确认的Jetson无线MAC"
+$ApMac = "替换为本地确认的AP BSSID"
+$SanityDir = "D:\CSI私有结果\sanity_本轮唯一目录"
+python tools/capture_csi_diag.py --port COM10 --channel 2 --target $TargetMac --ap $ApMac --mode PROBE --duration 12 --output $SanityDir
+```
+
+sanity通过后，才启动一次有硬上限的手动握手采集：
+
+```powershell
+$RunDir = "D:\CSI私有结果\handshake_diag_本轮唯一目录"
+$StopFile = Join-Path $RunDir "STOP"
+python tools/capture_csi_diag.py --port COM10 --channel 2 --target $TargetMac --ap $ApMac --mode HANDSHAKE_DIAG --max-duration 300 --stop-file $StopFile --output $RunDir
+```
+
+工具只控制 ESP 串口，不操作 Jetson。确认 `HANDSHAKE_DIAG ARMED` 后由现场人员手动断开并连回一次；完成后创建指定 stop-file。窗口最多300秒，无重试。达到上限会自动 STOP。
+
+离线解码（目标/AP地址只在本地命令行提供）：
+
+```powershell
+python tools/wpa2_gate8c.py --capture <PRIVATE_CAPTURE_DIR> --output <PRIVATE_ANALYSIS_DIR> --target <JETSON_MAC> --ap <AP_MAC>
+```
+
+**进入下一阶段的门槛**：离线报告明确指出CSI_DATA中的 M1–M4、方向、record_serial/rx_seq 与同记录 CSI 有效性；分类不等于MIC验证或WPA2解密。若缺消息，先分析本轮结果，不自动重连。Jetson网络、AP、eth0、ROS/DDS和其他服务均不由该工具改动。
+
+### 新版本离线回归
+
+- 8d工具全套：44项通过，1项可选 tshark 集成测试跳过；旧 `sniffer_8_csi` WPA2工具全套：16项通过，1项可选测试跳过。
+- 测试仅使用合成帧，不代表已取得真实握手、完成WPA2解密或恢复业务 `packet_id`。
+
+---
+
+以下为原8d-a full-filter诊断阶段的历史记录；full promiscuous filter 仍保持不变，但它不再是 CSI_DATA 握手/业务关联主路径。
 
 ## 核心改动
 
