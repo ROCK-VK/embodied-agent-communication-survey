@@ -2,10 +2,10 @@
 
 ## 状态
 
-- 离线实现、测试和 ESP-IDF build 已完成。
-- 新固件尚未烧录；当前实际 ESP 仍按最后一次确认状态运行旧的 8d-a 诊断固件。
-- 本阶段未操作 Jetson、AP或 ESP Wi-Fi；未断连、重连、发 UDP。
-- COM10 已通过 Windows PnP 只读确认当前存在，设备为 USB-Enhanced-SERIAL CH343；本报告记录时尚未开始烧录。
+- 离线实现、测试和 ESP-IDF build 已完成；新固件已烧录并通过12秒被动 sanity。
+- ESP串口READY显示运行 `sniffer-8d-csi-centric`；esptool回读校验通过。只写入app分区`0x10000`，没有写bootloader、partition table或整片flash。
+- 本次未操作 Jetson、AP或Jetson Wi-Fi；未断连、重连、发 UDP。
+- COM10设备为USB-Enhanced-SERIAL CH343，烧录前PnP状态OK。
 
 ## 实现
 
@@ -30,11 +30,18 @@
 - `CMakeLists.txt`、`staged.c`、`capture_core.inc`、`sdkconfig`、`sdkconfig.defaults` 的 build 副本 SHA-256 均与本地源码/配置对应文件一致。
 - app：`sniffer_8d_csi_centric.bin`，909,472 bytes，SHA-256 `7AE079A2C62092D5D48EC9F485CB16FA1960703B57ADF9E60A882E56A929DDC8`。1 MiB app 分区余量约13%。
 
+## 实机被动 sanity
+
+- channel 2、12秒：固件版本匹配，实际信道/readback=2，`csi_target_valid=1293`，`CSI_DATA=1286`。
+- queue/raw/CSI drop、write errors、raw/CSI/payload truncation均为0；parser/CRC/transport错误为0；MODE_ACK、STOP_ACK、FINAL均收到。
+- 结论：新固件通过被动 sanity，可进入一次受控 HANDSHAKE_DIAG；此结果不证明 EAPOL CSI、完整握手、解密或packet_id关联。
+- 私有原始采集仅留在本机；本报告不含真实MAC、SSID、IP、原始CSI/帧、握手或PCAP。
+
 ## 下一步门禁
 
-1. 仅向 COM10 烧录该 app，并确认 esptool 写入校验成功。
-2. 先做 channel 2、10–15秒被动 PROBE sanity：target CSI > 0；queue/raw/CSI drop、UART/write、truncation 与 transport/parser error 均为0。失败即 STOP，不进入握手采集。
-3. sanity 通过后 ARM HANDSHAKE_DIAG。随后只允许用户现场手动断开并连回 Jetson Wi-Fi 一次；不远程 reassociate、不自动 retry、不进行第二次断连。
-4. 离线用 `wire8c.py` / `wpa2_gate8c.py` 统计目标 CSI_DATA、上下行、clear pair、LLC/SNAP、0x888e 和 M1–M4；报告每条消息的 record_serial、rx_seq、方向和同记录 CSI 有效性。
+1. 已完成COM10 app-only烧录和回读校验。
+2. 已通过channel 2、12秒被动PROBE sanity。
+3. 下一步ARM HANDSHAKE_DIAG。只允许用户现场手动断开并连回 Jetson Wi-Fi 一次；不远程 reassociate、不自动 retry、不进行第二次断连。
+4. 完成后离线用 `wire8c.py` / `wpa2_gate8c.py` 统计目标 CSI_DATA、上下行、clear pair、LLC/SNAP、0x888e 和 M1–M4；报告每条消息的 record_serial、rx_seq、方向和同记录 CSI 有效性。
 
-尚未验证：新固件实际运行、双向 CSI_DATA 实机表现、完整 M1–M4、MIC/CCMP 完整性、WPA2 解密和 packet_id 恢复。
+尚未验证：双向 CSI_DATA 握手实机表现、完整 M1–M4、MIC/CCMP 完整性、WPA2 解密和 packet_id 恢复。
