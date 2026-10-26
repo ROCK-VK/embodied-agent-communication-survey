@@ -53,4 +53,12 @@
 - 因未核实 Jetson 本次窗口中的无线信道，目标CSI为0的原因尚不确定；固件启动和串口控制正常，但目标CSI sanity **未通过**。不进行断开/连回实验。后续先只读核对 Jetson channel，再复测被动CSI；通过后才等待用户手动做一次断开/连回。
 - 采集结束后唯一一次5秒只读SSH查询未取回状态（exit 255），没有重试，也没有向Jetson发送配置或网络操作命令。
 - 用户确认当前不在实验室、Jetson不在现场；后续需等设备回到现场再只读核对信道。当前不安排断开/连回实验。
+
+### 2026-10-26 候选固件被动 CSI sanity
+
+- 用户报告 Jetson 已连 2.4 GHz。只读 SSH 查询未能返回系统链路状态（exit 255）；没有重试或修改 Jetson。
+- ESP 在 channel 2 监听 12 秒并正确读回 channel；CSI callback 710 次，其中来源匹配目标的有效 CSI 为44条。CSI队列/串口错误/截断为0，最低heap 109484 B；MODE STOP/FINAL正常。
+- CSI_DATA记录为0，44个大帧候选超过当前256 B上限并被过滤。该轮通过目标CSI callback sanity，但没有验证EAPOL、完整握手或业务packet_id记录。
+- 结果可支持准备一次用户手动断开/连回实验；Codex不远程重关联。须先ARM限时监听并确认状态，再通知用户操作。
+- 详细匿名统计见[2026-10-26被动CSI sanity报告](../结果/real_poc_8da_candidate_passive_sanity_20261026.md)。
 - 详细匿名统计见[候选构建、烧录与被动 sanity 报告](../结果/real_poc_8da_candidate_build_flash_sanity_20261021.md)。
