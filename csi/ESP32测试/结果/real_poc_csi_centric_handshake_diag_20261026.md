@@ -4,7 +4,7 @@
 
 - 离线实现、测试和 ESP-IDF build 已完成；新固件已烧录并通过12秒被动 sanity。
 - ESP串口READY显示运行 `sniffer-8d-csi-centric`；esptool回读校验通过。只写入app分区`0x10000`，没有写bootloader、partition table或整片flash。
-- 本次未操作 Jetson、AP或Jetson Wi-Fi；未断连、重连、发 UDP。
+- 本轮没有通过程序/SSH操作Jetson或AP；用户在Jetson本机手动完成一次Wi-Fi断开和恢复，未发UDP。
 - COM10设备为USB-Enhanced-SERIAL CH343，烧录前PnP状态OK。
 
 ## 实现
@@ -37,11 +37,29 @@
 - 结论：新固件通过被动 sanity，可进入一次受控 HANDSHAKE_DIAG；此结果不证明 EAPOL CSI、完整握手、解密或packet_id关联。
 - 私有原始采集仅留在本机；本报告不含真实MAC、SSID、IP、原始CSI/帧、握手或PCAP。
 
+## 单次实机 HANDSHAKE_DIAG 结果
+
+- channel 2，约272秒，用户手动断开并恢复一次；capture以本地STOP正常结束，MODE_ACK/STOP_ACK/FINAL均收到。用户报告Jetson已重新连接；未通过SSH验证。
+- CSI callback=46,218；有效目标CSI=25,925；精确Jetson↔AP pair CSI=25,925，其中Jetson→AP=24,433、AP→Jetson=1,492。
+- 目标pair CSI记录中Protected=25,925、clear=0；`diag_llc_snap=0`、EtherType `0x888e`=0、CSI候选入队=0、CSI_DATA=0。promiscuous统计Data=4,301、target-related=2,366，但此模式不保留逐帧FRAME，不能据此判断其是否含EAPOL。
+- queue/raw/CSI drop、write error、raw/CSI/payload truncation、transport/parser错误均为0。分片/布局计数中的`diag_reject_layout=186`为全局header布局拒绝，未按target pair归属，不能解释为握手帧被该条件过滤。
+- host离线解析整段捕获：CSI_DATA/FRAME=0，EAPOL-Key M1/M2/M3/M4均0，rejected EAPOL=0；未生成可分类的EAPOL帧。因此缺失发生在CSI_DATA导出之前，不能归因为host parser、PCAP或tshark。
+
+| 消息 | 来源 | 方向 | record_serial | 同记录CSI有效 |
+|---|---|---|---:|---|
+| M1 | 未观测 | — | — | — |
+| M2 | 未观测 | — | — | — |
+| M3 | 未观测 | — | — | — |
+| M4 | 未观测 | — | — | — |
+
+- 结论边界：本次CSI callback收到的exact pair CSI全为Protected，没有clear target pair/EAPOL候选；因此未证明CSI_DATA能携带握手材料。不能据此断言M1–M4在空口完全不存在，也不能确认它们是否只在promiscuous callback出现。host解析与加密未进入实质验证。
+- 本轮唯一人工断开/恢复周期已用完；不自动重试、不再断连、不发UDP。
+
 ## 下一步门禁
 
 1. 已完成COM10 app-only烧录和回读校验。
 2. 已通过channel 2、12秒被动PROBE sanity。
-3. 下一步ARM HANDSHAKE_DIAG。只允许用户现场手动断开并连回 Jetson Wi-Fi 一次；不远程 reassociate、不自动 retry、不进行第二次断连。
-4. 完成后离线用 `wire8c.py` / `wpa2_gate8c.py` 统计目标 CSI_DATA、上下行、clear pair、LLC/SNAP、0x888e 和 M1–M4；报告每条消息的 record_serial、rx_seq、方向和同记录 CSI 有效性。
+3. 已完成唯一一次HANDSHAKE_DIAG人工断开/恢复，且未获得CSI_DATA/EAPOL。不要在本轮重复断连或重连。
+4. 后续先按本轮计数做离线决策；尚无CSI_DATA握手材料，不进入WPA2解密或packet_id UDP阶段。任何新实机断连需另行明确安排。
 
-尚未验证：双向 CSI_DATA 握手实机表现、完整 M1–M4、MIC/CCMP 完整性、WPA2 解密和 packet_id 恢复。
+尚未验证：CSI callback是否会为clear EAPOL产生CSI_DATA、完整 M1–M4、MIC/CCMP完整性、WPA2解密和packet_id恢复。
