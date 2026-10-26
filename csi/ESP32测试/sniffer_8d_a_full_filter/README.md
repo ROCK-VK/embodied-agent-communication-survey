@@ -97,3 +97,10 @@
 - 诊断统计：prom_data=658，target-related=63，exact pair=63（59上行、4下行）；63个均为Protected，unprotected=0。长度<=256B为61、>256B为2；pair_small/LLC-SNAP/0x888e候选均为0；Protected拒绝63，其他拒绝0。
 - raw_enqueued/output/drop=0；M1/M2/M3/M4=0。CSI callback 6128、目标有效CSI 453；queue/写错误/truncation均0，最低heap109336 B。不能证明缺失握手帧曾到达promiscuous callback，因此本轮不改筛选器。
 - 完整匿名漏斗与边界见[诊断筛选漏斗报告](../结果/real_poc_8da_diagnostic_filter_funnel_20261026.md)。
+
+### 2026-10-26 CSI callback / promiscuous 路径审计
+
+- 先前成功抓到的M3是promiscuous callback产生的FRAME（record_serial=120）；该capture没有CSI_DATA。
+- ESP-IDF 5.5.5 CSI API含`hdr/payload/payload_len/mac/dmac/rx_seq`。HANDSHAKE_ONLY在计数有效CSI后提前return，因此不是API缺字段；当前回调仅保留Jetson→AP方向。
+- 12秒sanity曾产生一条未截断的Protected CSI_DATA（payload 97/97、CSI 114/114），证明同一记录可承载Protected帧与CSI；尚未完成解密或packet_id恢复。建议将CSI-centric atomic record作为业务关联主线，不再要求promiscuous负责全部Data配对。
+- 双向CSI回调EAPOL捕获、CSI_DATA的host EAPOL解析和Protected packet_id解密仍待验证。详见[CSI callback路径审计报告](../结果/real_poc_8da_csi_callback_path_audit_20261026.md)。
