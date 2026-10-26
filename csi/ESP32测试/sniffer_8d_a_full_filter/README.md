@@ -85,3 +85,9 @@
 - `hs_llc_snap_candidate` 与 `hs_ethertype_888e_candidate`：目标相关、可按 LLC/SNAP 检查的 clear Data 中，分别匹配 SNAP 前缀和 EtherType `0x888e` 的数量；它们是候选特征统计，不替代 host EAPOL-Key 解析。
 - `hs_filter_protected`、`hs_filter_oversize`、`hs_filter_pair_mismatch`、`hs_filter_other`：候选 gate 拒绝分支统计。`raw_enqueued`、`raw_output`、`raw_drop` 为传输阶段计数；M1–M4 由 host parser 对实际 FRAME 记录分类。
 - 固件计数是本次开机以来的累计值；烧录后先重启再开始单一串口采集，便于直接读取本轮计数。`MODE_ACK` 不会清零计数。
+
+### 2026-10-26 诊断固件烧录与被动 sanity
+
+- 最终诊断app已烧录COM10并通过esptool写入哈希校验，app SHA256 F6AD6F647F609D5B7A6BDA661B345CC471BCD9F1E5BE76569AD46B141ACCD43D（906,976 B）。
+- 12秒被动 channel 2 sanity：CSI callback 570，目标有效 CSI 48；prom_data 64、目标相关Data 5、pair_seen 5。queue/raw/CSI drop、UART写错误、截断、payload missing与empty CSI均为0，最低heap 111,940 B。MODE STOP/FINAL正常，COM10释放。
+- 仅验证诊断固件运行及目标CSI callback；未开始HANDSHAKE_ONLY断开/连回。详细匿名结果见结果目录的2026-10-26被动CSI sanity报告。

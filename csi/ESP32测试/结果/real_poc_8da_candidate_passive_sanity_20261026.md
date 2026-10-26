@@ -30,3 +30,12 @@
 3. 用户确认准备后，再启动一个有时限的 ESP 监听窗口；先报告已 ARM 和状态，再由用户断开/恢复一次。若窗口异常或过期，停止并分析，不自动重开。
 
 原始串口流保留在本地 `ESP32测试/结果/real_poc_8da_candidate_passive_sanity_20261026_174157/`，不发布原始数据、MAC/IP、凭据或构建二进制。
+
+## 诊断固件烧录与第二轮被动 sanity（2026-10-26 18:47）
+
+- 固件：ESP32-C5 / IDF 5.5.5；app 906,976 B，SHA256 F6AD6F647F609D5B7A6BDA661B345CC471BCD9F1E5BE76569AD46B141ACCD43D。COM10写入bootloader、partition table和app均通过esptool数据哈希校验。
+- 采集：12秒，被动 PROBE_CAPTURE；channel 2读回成功。CSI callback 570，目标来源/有效 CSI 48/48；prom_data 64，target-related Data 5，pair_seen 5。CSI_DATA导出1条。
+- 资源：queue_drop/raw_drop/csi_drop=0；write_errors=0；raw/csi/payload truncation=0；payload_missing/csi_empty=0；最低 free heap 111,940 B。
+- 收到STOP ACK与FINAL，RF关闭，COM10采集脚本退出并释放。没有SSH、断开/重连、UDP或Jetson/AP配置操作。
+- 结论：最终诊断固件启动并输出有效统计，channel 2目标CSI sanity通过；尚未启动 HANDSHAKE_ONLY 重连窗口。此结果不代表捕获握手或完成 packet_id与CSI关联。
+- 私有stream.bin和时间戳文件保存在本地诊断sanity目录，不发布。
