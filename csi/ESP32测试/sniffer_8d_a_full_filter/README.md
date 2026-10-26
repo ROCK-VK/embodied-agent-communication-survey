@@ -91,3 +91,9 @@
 - 最终诊断app已烧录COM10并通过esptool写入哈希校验，app SHA256 F6AD6F647F609D5B7A6BDA661B345CC471BCD9F1E5BE76569AD46B141ACCD43D（906,976 B）。
 - 12秒被动 channel 2 sanity：CSI callback 570，目标有效 CSI 48；prom_data 64、目标相关Data 5、pair_seen 5。queue/raw/CSI drop、UART写错误、截断、payload missing与empty CSI均为0，最低heap 111,940 B。MODE STOP/FINAL正常，COM10释放。
 - 仅验证诊断固件运行及目标CSI callback；未开始HANDSHAKE_ONLY断开/连回。详细匿名结果见结果目录的2026-10-26被动CSI sanity报告。
+
+### 2026-10-26 HANDSHAKE_ONLY 单次人工断开/连回漏斗
+
+- 诊断统计：prom_data=658，target-related=63，exact pair=63（59上行、4下行）；63个均为Protected，unprotected=0。长度<=256B为61、>256B为2；pair_small/LLC-SNAP/0x888e候选均为0；Protected拒绝63，其他拒绝0。
+- raw_enqueued/output/drop=0；M1/M2/M3/M4=0。CSI callback 6128、目标有效CSI 453；queue/写错误/truncation均0，最低heap109336 B。不能证明缺失握手帧曾到达promiscuous callback，因此本轮不改筛选器。
+- 完整匿名漏斗与边界见[诊断筛选漏斗报告](../结果/real_poc_8da_diagnostic_filter_funnel_20261026.md)。
