@@ -61,4 +61,11 @@
 - CSI_DATA记录为0，44个大帧候选超过当前256 B上限并被过滤。该轮通过目标CSI callback sanity，但没有验证EAPOL、完整握手或业务packet_id记录。
 - 结果可支持准备一次用户手动断开/连回实验；Codex不远程重关联。须先ARM限时监听并确认状态，再通知用户操作。
 - 详细匿名统计见[2026-10-26被动CSI sanity报告](../结果/real_poc_8da_candidate_passive_sanity_20261026.md)。
+
+### 2026-10-26 单次手动断开/连回
+
+- 用户在 Jetson 本机手动完成一次 Wi-Fi 断开并连回；Codex未远程重关联、未修改网络，也未自动重试。
+- HANDSHAKE_ONLY运行约170.7秒；CSI callback 8952、目标有效CSI 555。queue/raw/CSI drop、串口错误与截断均0，最低heap 50740 B，正常STOP/FINAL。
+- 只捕获并解析到一条 EAPOL-Key M3；M1、M2、M4均0，完整四次握手不成立。CSI_DATA原子记录0，未做WPA2解密或packet_id关联。
+- 单次结果未达到握手门槛；不再自动/重复重连。详细匿名报告见[单次手动重连结果](../结果/real_poc_8da_manual_reconnect_20261026.md)。
 - 详细匿名统计见[候选构建、烧录与被动 sanity 报告](../结果/real_poc_8da_candidate_build_flash_sanity_20261021.md)。
