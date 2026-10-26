@@ -49,10 +49,15 @@ static void configure(bool synth){
  configured=true;configASSERT(xTaskCreate(output_task,"staged_uart",6144,NULL,5,NULL)==pdPASS);control_event="CONFIGURED";control(7);
 }
 static void change_mode(unsigned mode){
+ unsigned old_mode=atomic_load(&capture_mode);
  atomic_store(&capture_mode,MODE_STOP);atomic_store(&synthetic_active,false);
  while(atomic_load(&synth_task_running))vTaskDelay(1);
  if(rf_capture_enabled){ESP_ERROR_CHECK(esp_wifi_set_csi(false));ESP_ERROR_CHECK(esp_wifi_set_promiscuous(false));rf_capture_enabled=false;}
- drain();xSemaphoreTakeRecursive(tx_mutex,portMAX_DELAY);atomic_fetch_add(&mode_epoch,1);atomic_store(&capture_mode,mode);
+ drain();
+ if(old_mode==MODE_HANDSHAKE_DUAL_DIAG&&mode!=MODE_HANDSHAKE_DUAL_DIAG){uint64_t now=esp_timer_get_time();timeline_flush(now,true);dual_stats(now);atomic_store(&dual_capture_active,false);}
+ xSemaphoreTakeRecursive(tx_mutex,portMAX_DELAY);atomic_fetch_add(&mode_epoch,1);
+ if(mode==MODE_HANDSHAKE_DUAL_DIAG){dual_reset(esp_timer_get_time());atomic_store(&dual_capture_active,true);}
+ atomic_store(&capture_mode,mode);
  if(mode!=MODE_STOP&&!synthetic_only){ESP_ERROR_CHECK(esp_wifi_set_promiscuous(true));ESP_ERROR_CHECK(esp_wifi_set_csi(true));rf_capture_enabled=true;}
  control_event="MODE_ACK";control(7); // ACK only after setup; prior mode drained, counters cumulative.
  xSemaphoreGiveRecursive(tx_mutex);
@@ -75,9 +80,9 @@ void app_main(void){
   }else if(!configured&&sscanf(line,"CFG,%u,%x:%x:%x:%x:%x:%x,%x:%x:%x:%x:%x:%x",&ch,&m[0],&m[1],&m[2],&m[3],&m[4],&m[5],&a[0],&a[1],&a[2],&a[3],&a[4],&a[5])==13&&ch>0&&ch<200){
    bool ok=true;for(unsigned i=0;i<6;i++)if(m[i]>255||a[i]>255)ok=false;
    if(ok){channel=ch;for(unsigned i=0;i<6;i++){target[i]=m[i];ap[i]=a[i];}configure(false);}
-  }else if(configured&&(!strcmp(line,"MODE HANDSHAKE")||!strcmp(line,"MODE HANDSHAKE_DIAG")||!strcmp(line,"MODE PROBE")||!strcmp(line,"MODE STOP"))){
+  }else if(configured&&(!strcmp(line,"MODE HANDSHAKE")||!strcmp(line,"MODE HANDSHAKE_DIAG")||!strcmp(line,"MODE HANDSHAKE_DUAL_DIAG")||!strcmp(line,"MODE PROBE")||!strcmp(line,"MODE STOP"))){
    if(atomic_load(&synthetic_active)&&strcmp(line,"MODE STOP")){control_event="BUSY";control(7);continue;}
-   change_mode(!strcmp(line,"MODE HANDSHAKE")?MODE_HANDSHAKE:!strcmp(line,"MODE HANDSHAKE_DIAG")?MODE_HANDSHAKE_DIAG:!strcmp(line,"MODE PROBE")?MODE_PROBE:MODE_STOP);
+    change_mode(!strcmp(line,"MODE HANDSHAKE")?MODE_HANDSHAKE:!strcmp(line,"MODE HANDSHAKE_DIAG")?MODE_HANDSHAKE_DIAG:!strcmp(line,"MODE HANDSHAKE_DUAL_DIAG")?MODE_HANDSHAKE_DUAL_DIAG:!strcmp(line,"MODE PROBE")?MODE_PROBE:MODE_STOP);
   }else if(configured&&synthetic_only&&!atomic_load(&synthetic_active)&&atomic_load(&capture_mode)!=MODE_STOP&&sscanf(line,"SYNTH %u %u",&rate,&seconds)==2&&rate>0&&rate<=200&&seconds>0&&seconds<=30){
    synth_rate=rate;synth_seconds=seconds;atomic_store(&synthetic_active,true);atomic_store(&synth_task_running,true);control_event="SYNTH_ACK";control(7);configASSERT(xTaskCreate(synth_task,"synthetic_callbacks",6144,NULL,6,NULL)==pdPASS);
   }else if(configured){control_event="ERROR";control(7);}

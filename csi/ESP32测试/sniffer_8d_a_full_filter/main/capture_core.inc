@@ -32,6 +32,7 @@
 #define STATS 3
 #define ARMED 4
 #define FINAL 5
+#define TIMELINE 8
 #define FCS_ABSENT 1
 #define TRUNCATED 2
 #define EAPOL 4
@@ -41,7 +42,7 @@ static event_t *pool;
 static QueueHandle_t free_slots, events;
 static uint8_t target[6], ap[6];
 static unsigned channel, serial_id;
-enum { MODE_STOP=0, MODE_HANDSHAKE=1, MODE_PROBE=2, MODE_HANDSHAKE_DIAG=3 };
+enum { MODE_STOP=0, MODE_HANDSHAKE=1, MODE_PROBE=2, MODE_HANDSHAKE_DIAG=3, MODE_HANDSHAKE_DUAL_DIAG=4 };
 static atomic_bool synthetic_active;
 static atomic_uint capture_mode, mode_epoch;
 static atomic_uint target_csi_seen,candidate_seen,large_frame_filtered,filter_other,handshake_data_count;
@@ -51,7 +52,7 @@ static bool configured,synthetic_only,rf_capture_enabled;
 static unsigned synth_rate,synth_seconds;
 static const char *control_event="CONFIGURED";
 #define CANDIDATE_MAX 256
-static const char *mode_name(void){unsigned m=atomic_load(&capture_mode);return m==MODE_HANDSHAKE?"HANDSHAKE_ONLY":m==MODE_PROBE?"PROBE_CAPTURE":m==MODE_HANDSHAKE_DIAG?"HANDSHAKE_DIAG":"STOP";}
+static const char *mode_name(void){unsigned m=atomic_load(&capture_mode);return m==MODE_HANDSHAKE?"HANDSHAKE_ONLY":m==MODE_PROBE?"PROBE_CAPTURE":m==MODE_HANDSHAKE_DIAG?"HANDSHAKE_DIAG":m==MODE_HANDSHAKE_DUAL_DIAG?"HANDSHAKE_DUAL_DIAG":"STOP";}
 
 static atomic_uint prom_total, pair_frames, eapol_frames, csi_total, target_csi;
 static atomic_uint prom_data_all, prom_mgmt_all, prom_ctrl_all, prom_misc_all;
@@ -77,10 +78,36 @@ static atomic_uint diag_pair_seen, diag_uplink, diag_downlink, diag_protected, d
 static atomic_uint diag_len_le256, diag_len_gt256, diag_llc_snap, diag_ethertype_888e;
 static atomic_uint diag_candidate_enqueued, diag_reject_layout, diag_reject_length;
 static atomic_uint diag_reject_protected, diag_reject_llc, diag_reject_ethertype, diag_invalid_csi;
+static atomic_uint diag_payload_available, diag_payload_missing;
 static uint8_t actual_chan;
 static wifi_second_chan_t actual_sec;
 static wifi_mode_t actual_mode;
 static bool channel_readback_ok;
+
+#define DUAL_METRICS(X) \
+    X(prom_target_related) X(prom_pair) X(prom_up) X(prom_down) \
+    X(prom_protected) X(prom_clear) X(prom_len_le256) X(prom_len_gt256) \
+    X(prom_llc_snap) X(prom_ethertype_888e) X(prom_eapol_candidate) \
+    X(prom_raw_enqueued) X(prom_raw_output) X(prom_raw_drop) X(prom_raw_truncated) \
+    X(csi_pair) X(csi_up) X(csi_down) X(csi_protected) X(csi_clear) \
+    X(csi_payload_available) X(csi_payload_missing) X(csi_len_le256) X(csi_len_gt256) \
+    X(csi_llc_snap) X(csi_ethertype_888e) X(csi_valid) X(csi_invalid) \
+    X(csi_layout_reject) X(csi_data_enqueued) X(csi_data_output) X(csi_drop) \
+    X(csi_reject_length) X(write_errors)
+#define DECL_DUAL_METRIC(name) atomic_uint name;
+typedef struct { DUAL_METRICS(DECL_DUAL_METRIC) } dual_metrics_t;
+#undef DECL_DUAL_METRIC
+static dual_metrics_t dual_total, dual_window;
+static atomic_bool dual_capture_active;
+static uint64_t timeline_last_us;
+static uint32_t timeline_bucket_id;
+#define TIMELINE_BUCKET_US 200000
+#define DUAL_ADD(name) do { \
+    if(atomic_load(&dual_capture_active)) { \
+        atomic_fetch_add(&dual_total.name,1); \
+        atomic_fetch_add(&dual_window.name,1); \
+    } \
+} while(0)
 
 static uint16_t le16(const uint8_t *p) { return p[0] | (p[1]<<8); }
 static void put16(uint8_t *p, unsigned v) { p[0]=v; p[1]=v>>8; }
@@ -95,9 +122,14 @@ static unsigned header_length(const uint8_t *p, unsigned n) {
     if(fc&0x80) { h+=2; if(fc&0x8000) h+=4; }
     return n>=h?h:0;
 }
+static void exact_infrastructure_pair(const uint8_t *p,bool *up,bool *down) {
+    uint16_t fc=le16(p);bool tods=(fc&0x0100)!=0,fromds=(fc&0x0200)!=0;
+    *up=tods&&!fromds&&same(p+4,ap)&&same(p+10,target);
+    *down=!tods&&fromds&&same(p+4,target)&&same(p+10,ap);
+}
 static bool is_eapol(const uint8_t *p,unsigned n,unsigned h) {
     static const uint8_t llc[]={0xaa,0xaa,3,0,0,0,0x88,0x8e};
-    // Protected/A-MSDU/fragmented bodies are not guessed to be LLC; raw still retained.
+    // Protected/A-MSDU/fragmented bodies are never guessed to contain clear LLC.
     uint16_t fc=le16(p);
     if(fc&0x4000 || fc&0x400 || (le16(p+22)&15)) return false;
     unsigned qos=24+(((fc&0x300)==0x300)?6:0);
@@ -148,22 +180,44 @@ static void prom_cb(void *buf,wifi_promiscuous_pkt_type_t kind) {
     if(meta.dump_len==meta.sig_len)atomic_fetch_add(&prom_dump_eq_sig,1);
     unsigned n=meta.sig_len<meta.dump_len?meta.sig_len:meta.dump_len;
     unsigned h=header_length(p->payload,n);if(!h)return;
+    uint16_t fc=le16(p->payload);unsigned mode=atomic_load(&capture_mode);
+    bool target_related=same(p->payload+10,target)||same(p->payload+4,target);
+    if(target_related){atomic_fetch_add(&prom_target_related_data,1);DUAL_ADD(prom_target_related);}
+
+    if(mode==MODE_HANDSHAKE_DUAL_DIAG) {
+        bool up=false,down=false;exact_infrastructure_pair(p->payload,&up,&down);
+        if(!up&&!down)return;
+        atomic_fetch_add(&pair_seen,1);DUAL_ADD(prom_pair);
+        if(up){DUAL_ADD(prom_up);}else{DUAL_ADD(prom_down);}
+        if(n<=CANDIDATE_MAX)DUAL_ADD(prom_len_le256);else DUAL_ADD(prom_len_gt256);
+        bool protected_frame=(fc&0x4000)!=0;
+        if(protected_frame)DUAL_ADD(prom_protected);else DUAL_ADD(prom_clear);
+        bool llc_snap=has_llc_snap_candidate(p->payload,n,h);
+        bool ethertype=has_ethertype_888e_candidate(p->payload,n,h);
+        if(llc_snap)DUAL_ADD(prom_llc_snap);
+        if(ethertype)DUAL_ADD(prom_ethertype_888e);
+        bool eapol=ethertype&&is_eapol(p->payload,n,h);
+        if(!eapol)return; // Protected/background Data and clear non-EAPOL never enter RAW.
+        DUAL_ADD(prom_eapol_candidate);
+        atomic_fetch_add(&pair_frames,1);atomic_fetch_add(&eapol_frames,1);
+        if(n>CAP){atomic_fetch_add(&raw_truncated,1);DUAL_ADD(prom_raw_truncated);return;}
+        if(up)atomic_fetch_add(&uplink_data_cb,1);else atomic_fetch_add(&downlink_eapol_cb,1);
+        event_t *e=take();if(!e){atomic_fetch_add(&raw_drop,1);DUAL_ADD(prom_raw_drop);return;}
+        common(e,RAW,&meta,p->payload);put16(e->header+32,EAPOL|(up?UPLINK:0)); // FCS semantics remain unconfirmed.
+        put16(e->header+34,n);put16(e->header+36,n);
+        memcpy(e->data,p->payload,n);DUAL_ADD(prom_raw_enqueued);enqueue(e);return;
+    }
+
     bool station_uplink=same(p->payload+10,target);
-    bool target_related=station_uplink||same(p->payload+4,target);
     bool up=station_uplink&&same(p->payload+4,ap);
     bool down=!station_uplink&&same(p->payload+10,ap)&&same(p->payload+4,target);
-    if(target_related)atomic_fetch_add(&prom_target_related_data,1);
     if(up||down)atomic_fetch_add(&pair_seen,1);
     if(!target_related)return;
-    unsigned mode=atomic_load(&capture_mode);
-    // CSI-centric diagnostics use CSI_DATA as the frame source; promisc only counts.
+    // CSI-centric HANDSHAKE_DIAG deliberately counts but does not export promisc frames.
     if(mode==MODE_HANDSHAKE_DIAG)return;
-    uint16_t fc=le16(p->payload);
     bool eapol=is_eapol(p->payload,n,h);
     bool llc_snap_candidate=has_llc_snap_candidate(p->payload,n,h);
     bool ethertype_888e_candidate=has_ethertype_888e_candidate(p->payload,n,h);
-    // Keep target-related EAPOL independent of the configured AP BSSID; host validation remains strict.
-    // Only clear, bounded frames from the exact target/AP pair enter the diagnostic path.
     bool pair_small=(mode==MODE_HANDSHAKE && (up||down) && n<=CANDIDATE_MAX && !(fc&0x4000));
     if(mode==MODE_HANDSHAKE) {
         if(llc_snap_candidate) atomic_fetch_add(&hs_llc_snap_candidate,1);
@@ -198,16 +252,16 @@ static void prom_cb(void *buf,wifi_promiscuous_pkt_type_t kind) {
     }
     atomic_fetch_add(&pair_frames,1);
     if(eapol)atomic_fetch_add(&eapol_frames,1);
-    if(n>CAP){atomic_fetch_add(&raw_truncated,1);return;} // Explicit reject, never export partial frame.
+    if(n>CAP){atomic_fetch_add(&raw_truncated,1);return;}
     if(station_uplink)atomic_fetch_add(&uplink_data_cb,1);else atomic_fetch_add(&downlink_eapol_cb,1);
     event_t *e=take();if(!e){atomic_fetch_add(&raw_drop,1);return;}
     common(e,RAW,&meta,p->payload);unsigned copy=n>CAP?CAP:n;
-    put16(e->header+32,(eapol?EAPOL:0)|(station_uplink?UPLINK:0)|(copy<n?TRUNCATED:0)); // FCS semantics UNCONFIRMED.
+    put16(e->header+32,(eapol?EAPOL:0)|(station_uplink?UPLINK:0)|(copy<n?TRUNCATED:0));
     put16(e->header+34,n);put16(e->header+36,copy);
     if(copy<n)atomic_fetch_add(&raw_truncated,1);
     memcpy(e->data,p->payload,copy);enqueue(e);
 }
-static void csi_diag_cb(wifi_csi_info_t *p) {
+static void csi_diag_cb(wifi_csi_info_t *p,bool eapol_only) {
     wifi_pkt_rx_ctrl_t meta=p->rx_ctrl;
     if(!p->hdr){atomic_fetch_add(&diag_reject_layout,1);return;}
     uint8_t first24[24];memcpy(first24,p->hdr,sizeof(first24));
@@ -216,13 +270,11 @@ static void csi_diag_cb(wifi_csi_info_t *p) {
     uint8_t hdr[36];memcpy(hdr,p->hdr,hl);
     if(header_length(hdr,hl)!=hl){atomic_fetch_add(&diag_reject_layout,1);return;}
 
-    uint16_t fc=le16(hdr);
-    bool tods=(fc&0x0100)!=0, fromds=(fc&0x0200)!=0;
-    bool up=tods&&!fromds&&same(hdr+4,ap)&&same(hdr+10,target);
-    bool down=!tods&&fromds&&same(hdr+4,target)&&same(hdr+10,ap);
+    uint16_t fc=le16(hdr);bool up=false,down=false;exact_infrastructure_pair(hdr,&up,&down);
     if(!up&&!down)return; // Exact Jetson↔AP pair only; no third-party frames are exported.
     atomic_fetch_add(&diag_pair_seen,1);
     if(up)atomic_fetch_add(&diag_uplink,1);else atomic_fetch_add(&diag_downlink,1);
+    if(!eapol_only){DUAL_ADD(csi_pair);if(up)DUAL_ADD(csi_up);else DUAL_ADD(csi_down);}
 
     if(meta.rx_channel_estimate_info_vld)atomic_fetch_add(&csi_valid_channel_estimate,1);
     if(meta.rx_state==0)atomic_fetch_add(&csi_rxstate_ok,1);
@@ -231,48 +283,65 @@ static void csi_diag_cb(wifi_csi_info_t *p) {
         atomic_fetch_add(&csi_target_valid,1);
         atomic_fetch_add(&target_csi_seen,1);
         atomic_fetch_add(&csi_buf_present,1);
+        if(!eapol_only)DUAL_ADD(csi_valid);
     }else{
         atomic_fetch_add(&diag_invalid_csi,1);
+        if(!eapol_only)DUAL_ADD(csi_invalid);
         if(!p->buf||!p->len)atomic_fetch_add(&csi_empty,1);
     }
 
-    if(fc&0x4000){atomic_fetch_add(&diag_protected,1);atomic_fetch_add(&diag_reject_protected,1);return;}
-    atomic_fetch_add(&diag_clear,1);
-    if(p->payload_len>CANDIDATE_MAX){atomic_fetch_add(&diag_len_gt256,1);atomic_fetch_add(&diag_reject_length,1);return;}
-    atomic_fetch_add(&diag_len_le256,1);
-    if(!p->payload){atomic_fetch_add(&diag_reject_layout,1);return;}
-    if((fc&0x0400)||(le16(hdr+22)&15)){atomic_fetch_add(&diag_reject_layout,1);return;}
+    bool protected_frame=(fc&0x4000)!=0;
+    if(protected_frame){
+        atomic_fetch_add(&diag_protected,1);
+        if(eapol_only){atomic_fetch_add(&diag_reject_protected,1);return;}
+        DUAL_ADD(csi_protected);
+    }else{
+        atomic_fetch_add(&diag_clear,1);
+        if(!eapol_only)DUAL_ADD(csi_clear);
+    }
+    if(p->payload&&p->payload_len){atomic_fetch_add(&diag_payload_available,1);if(!eapol_only)DUAL_ADD(csi_payload_available);}
+    else {atomic_fetch_add(&diag_payload_missing,1);if(!eapol_only)DUAL_ADD(csi_payload_missing);}
+    if(p->payload_len>CANDIDATE_MAX){
+        atomic_fetch_add(&diag_len_gt256,1);atomic_fetch_add(&diag_reject_length,1);
+        if(!eapol_only)DUAL_ADD(csi_len_gt256);
+        return;
+    }
+    atomic_fetch_add(&diag_len_le256,1);if(!eapol_only)DUAL_ADD(csi_len_le256);
+    if(!p->payload||!p->payload_len){
+        atomic_fetch_add(&diag_reject_layout,1);if(!eapol_only)DUAL_ADD(csi_layout_reject);return;
+    }
+    // Handshake-only peeks for clear EAPOL and therefore rejects incomplete MSDUs.
+    // DUAL_DIAG preserves Protected, fragmented and A-MSDU MPDUs for later host analysis.
+    if(eapol_only&&((fc&0x0400)||(le16(hdr+22)&15))){atomic_fetch_add(&diag_reject_layout,1);return;}
     unsigned qosoff=24;
-    if((fc&0x0080)&&(hdr[qosoff]&0x80)){atomic_fetch_add(&diag_reject_layout,1);return;}
+    if(eapol_only&&(fc&0x0080)&&(hdr[qosoff]&0x80)){atomic_fetch_add(&diag_reject_layout,1);return;}
 
     intptr_t delta=(intptr_t)(uintptr_t)p->payload-(intptr_t)(uintptr_t)p->hdr;
-    if(delta<24||delta>(intptr_t)hl){atomic_fetch_add(&diag_reject_layout,1);return;}
+    if(delta<24||delta>(intptr_t)hl){atomic_fetch_add(&diag_reject_layout,1);if(!eapol_only)DUAL_ADD(csi_layout_reject);return;}
     unsigned overlap=hl-(unsigned)delta;
-    if(p->payload_len<overlap+8){atomic_fetch_add(&diag_reject_layout,1);return;}
+    unsigned needed=overlap+(eapol_only?8:1);
+    if(p->payload_len<needed){atomic_fetch_add(&diag_reject_layout,1);if(!eapol_only)DUAL_ADD(csi_layout_reject);return;}
     if(overlap&&memcmp(hdr+(unsigned)delta,p->payload,overlap)!=0){
-        atomic_fetch_add(&diag_reject_layout,1);return;
+        atomic_fetch_add(&diag_reject_layout,1);if(!eapol_only)DUAL_ADD(csi_layout_reject);return;
     }
-    const uint8_t *llc=p->payload+overlap;
-    static const uint8_t snap[]={0xaa,0xaa,3,0,0,0};
-    if(memcmp(llc,snap,sizeof(snap))!=0){atomic_fetch_add(&diag_reject_llc,1);return;}
-    atomic_fetch_add(&diag_llc_snap,1);
-    if(p->payload_len<overlap+8||llc[6]!=0x88||llc[7]!=0x8e){
-        atomic_fetch_add(&diag_reject_ethertype,1);return;
+    const uint8_t *llc=p->payload+overlap;bool llc_snap=false,ethertype=false;
+    if(!protected_frame&&!(fc&0x0400)&&!(le16(hdr+22)&15)&&!((fc&0x0080)&&(hdr[qosoff]&0x80))){
+        static const uint8_t snap[]={0xaa,0xaa,3,0,0,0};
+        llc_snap=p->payload_len>=overlap+6&&memcmp(llc,snap,sizeof(snap))==0;
+        ethertype=llc_snap&&p->payload_len>=overlap+8&&llc[6]==0x88&&llc[7]==0x8e;
+        if(llc_snap){atomic_fetch_add(&diag_llc_snap,1);if(!eapol_only)DUAL_ADD(csi_llc_snap);}
+        if(ethertype){atomic_fetch_add(&diag_ethertype_888e,1);if(!eapol_only)DUAL_ADD(csi_ethertype_888e);}
     }
-    atomic_fetch_add(&diag_ethertype_888e,1);
+    if(eapol_only&&!llc_snap){atomic_fetch_add(&diag_reject_llc,1);return;}
+    if(eapol_only&&!ethertype){atomic_fetch_add(&diag_reject_ethertype,1);return;}
+    if(!eapol_only&&!csi_valid)return;
 
     unsigned origp=p->payload_len,origc=p->len;
     unsigned base=20+sizeof(meta)+hl;
-    if(base+origp>CAP){atomic_fetch_add(&diag_reject_length,1);return;}
-    unsigned cc=0;
-    if(p->buf&&origc){
-        unsigned limit=CAP-base-origp;
-        if(limit>CSI_CAP)limit=CSI_CAP;
-        cc=origc>limit?limit:origc;
-    }
-    if(origc!=cc)atomic_fetch_add(&csi_truncated,1);
+    if(base+origp+origc>CAP){atomic_fetch_add(&diag_reject_length,1);if(!eapol_only)DUAL_ADD(csi_reject_length);return;}
+    unsigned cc=(p->buf&&origc)?origc:0;
 
-    event_t *e=take();if(!e){atomic_fetch_add(&csi_drop,1);return;}
+    event_t *e=take();if(!e){atomic_fetch_add(&csi_drop,1);if(!eapol_only)DUAL_ADD(csi_drop);return;}
     memcpy(e->data+20,&meta,sizeof(meta));
     memcpy(e->data+20+sizeof(meta),hdr,hl);
     memcpy(e->data+base,p->payload,origp);
@@ -282,14 +351,15 @@ static void csi_diag_cb(wifi_csi_info_t *p) {
     put16(e->data+12,meta.sig_len);put16(e->data+14,meta.dump_len);
     put32(e->data+16,(uint32_t)(int32_t)delta);
     common(e,CSI,&meta,hdr);
-    uint16_t flags=(up?UPLINK:0)|((origc!=cc)?TRUNCATED:0);
-    put16(e->header+32,flags);
+    if(origc!=cc)atomic_fetch_add(&csi_truncated,1);
+    put16(e->header+32,(up?UPLINK:0)|((origc!=cc)?TRUNCATED:0));
     unsigned copied=base+origp+cc,original=base+origp+origc;
     put16(e->header+34,original>UINT16_MAX?UINT16_MAX:original);
     put16(e->header+36,copied);
     memcpy(e->header+52,p->mac,6);put16(e->header+58,p->rx_seq);
     e->header[60]=meta.rx_channel_estimate_info_vld;e->header[61]=p->first_word_invalid;
     enqueue(e);atomic_fetch_add(&diag_candidate_enqueued,1);
+    if(!eapol_only)DUAL_ADD(csi_data_enqueued);
 }
 static void csi_cb(void *ctx,wifi_csi_info_t *p) {
     (void)ctx;
@@ -316,8 +386,9 @@ static void csi_cb(void *ctx,wifi_csi_info_t *p) {
         atomic_fetch_add(&csi_source_cb,1);
     }
 
-    // Select both directions from 802.11 RA/TA and DS bits in HANDSHAKE_DIAG.
-    if(mode==MODE_HANDSHAKE_DIAG){csi_diag_cb(p);return;}
+    // Select both directions from 802.11 addresses/DS bits in diagnostic modes.
+    if(mode==MODE_HANDSHAKE_DIAG){csi_diag_cb(p,true);return;}
+    if(mode==MODE_HANDSHAKE_DUAL_DIAG){csi_diag_cb(p,false);return;}
     if(!same(p->mac,target))return;
 
     if(!p->buf||!p->len){
@@ -384,12 +455,53 @@ static void emit(event_t *e) {
     memcpy(wire,e->header,HDR);memcpy(wire+HDR,e->data,n);put32(wire+HDR+n,crc32(wire,HDR+n));
     unsigned total=HDR+n+4;int wrote=uart_write_bytes(UART_NUM_0,wire,total);
     if(wrote>0)atomic_fetch_add(&wire_bytes,wrote);
-    if(wrote!=(int)total)atomic_fetch_add(&write_errors,1);
-    else if(e->header[5]==RAW)atomic_fetch_add(&raw_output,1);
-    else if(e->header[5]==CSI)atomic_fetch_add(&csi_output,1);
+    if(wrote!=(int)total){atomic_fetch_add(&write_errors,1);DUAL_ADD(write_errors);}
+    else if(e->header[5]==RAW){atomic_fetch_add(&raw_output,1);DUAL_ADD(prom_raw_output);}
+    else if(e->header[5]==CSI){atomic_fetch_add(&csi_output,1);DUAL_ADD(csi_data_output);}
     xSemaphoreGiveRecursive(tx_mutex);
 }
 #define U(x) ((unsigned)atomic_load(&(x)))
+
+#define DUAL_JSON_KEY(name) "\"" #name "\":%u,"
+#define DUAL_JSON_LOAD(name) (unsigned)atomic_load(&metrics->name),
+#define DUAL_JSON_TAKE(name) (unsigned)atomic_exchange(&metrics->name,0),
+static void emit_dual_metrics(const char *event,dual_metrics_t *metrics,uint64_t start_us,uint64_t end_us,bool take_window) {
+    static event_t e;memset(e.header,0,HDR);
+    memcpy(e.header,"CS8R",4);e.header[4]=1;e.header[5]=take_window?TIMELINE:7;put16(e.header+6,HDR);
+    int n;
+    if(take_window){
+        n=snprintf((char*)e.data,CAP,
+          "{\"event\":\"%s\",\"mode\":\"HANDSHAKE_DUAL_DIAG\",\"nominal_bucket_us\":%u," DUAL_METRICS(DUAL_JSON_KEY)
+          "\"bucket_id\":%u,\"start_us\":%llu,\"end_us\":%llu,\"actual_span_us\":%llu}",
+          event,TIMELINE_BUCKET_US,DUAL_METRICS(DUAL_JSON_TAKE) (unsigned)timeline_bucket_id++,
+          (unsigned long long)start_us,(unsigned long long)end_us,(unsigned long long)(end_us-start_us));
+    }else{
+        n=snprintf((char*)e.data,CAP,
+          "{\"event\":\"%s\",\"mode\":\"HANDSHAKE_DUAL_DIAG\",\"nominal_bucket_us\":%u," DUAL_METRICS(DUAL_JSON_KEY)
+          "\"bucket_id\":%u,\"start_us\":%llu,\"end_us\":%llu}",
+          event,TIMELINE_BUCKET_US,DUAL_METRICS(DUAL_JSON_LOAD) (unsigned)timeline_bucket_id,
+          (unsigned long long)start_us,(unsigned long long)end_us);
+    }
+    configASSERT(n>0&&n<CAP);put16(e.header+34,n);put16(e.header+36,n);put64(e.header+16,end_us);emit(&e);
+}
+static void timeline_flush(uint64_t now_us,bool final_partial) {
+    if(!timeline_last_us){timeline_last_us=now_us;return;}
+    if(now_us<=timeline_last_us||(!final_partial&&now_us-timeline_last_us<TIMELINE_BUCKET_US))return;
+    uint64_t start=timeline_last_us;timeline_last_us=now_us;
+    emit_dual_metrics("TIMELINE",&dual_window,start,now_us,true);
+}
+static void dual_stats(uint64_t now_us) {
+    emit_dual_metrics("DUAL_STATS",&dual_total,timeline_last_us,now_us,false);
+}
+#define DUAL_ZERO(name) do { atomic_store(&dual_total.name,0);atomic_store(&dual_window.name,0); } while(0);
+static void dual_reset(uint64_t now_us) {
+    DUAL_METRICS(DUAL_ZERO)
+    timeline_bucket_id=0;timeline_last_us=now_us;
+}
+#undef DUAL_ZERO
+#undef DUAL_JSON_KEY
+#undef DUAL_JSON_LOAD
+#undef DUAL_JSON_TAKE
 
 static void control(unsigned kind){
  xSemaphoreTakeRecursive(tx_mutex,portMAX_DELAY);
@@ -429,7 +541,9 @@ static void control(unsigned kind){
 static void output_task(void *arg){
  (void)arg;int64_t last=esp_timer_get_time();
  for(;;){event_t*e=NULL;if(xQueueReceive(events,&e,pdMS_TO_TICKS(10))==pdTRUE){emit(e);configASSERT(xQueueSend(free_slots,&e,0)==pdTRUE);}
-  if(atomic_load(&capture_mode)!=MODE_STOP&&esp_timer_get_time()-last>=1000000){control(STATS);last=esp_timer_get_time();}
+  uint64_t now=esp_timer_get_time();unsigned mode=atomic_load(&capture_mode);
+  if(mode==MODE_HANDSHAKE_DUAL_DIAG)timeline_flush(now,false);
+  if(mode!=MODE_STOP&&now-(uint64_t)last>=1000000){control(STATS);if(mode==MODE_HANDSHAKE_DUAL_DIAG)dual_stats(now);last=(int64_t)now;}
  }
 }
 static void drain(void){

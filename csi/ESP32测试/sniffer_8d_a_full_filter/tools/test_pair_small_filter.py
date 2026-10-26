@@ -34,8 +34,8 @@ class PairSmallFilterTests(unittest.TestCase):
             expression,
             "mode==MODE_HANDSHAKE&&(up||down)&&n<=CANDIDATE_MAX&&!(fc&0x4000)",
         )
-        self.assertIn("bool target_related=station_uplink||same(p->payload+4,target);", source)
-        self.assertIn("if(target_related)atomic_fetch_add(&prom_target_related_data,1);", source)
+        self.assertIn("bool target_related=same(p->payload+10,target)||same(p->payload+4,target);", source)
+        self.assertIn("if(target_related){atomic_fetch_add(&prom_target_related_data,1);DUAL_ADD(prom_target_related);}", source)
         self.assertIn("if(!target_related)return;", source)
         self.assertIn("bool eapol=is_eapol(p->payload,n,h);", source)
         self.assertIn("if(!eapol && !pair_small) {", source)

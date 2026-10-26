@@ -1,7 +1,7 @@
 """Capture CSI-centric diagnostics from the ESP over UART only.
 
-This tool never connects to or changes the Jetson/AP. HANDSHAKE_DIAG stops only
-when its local stop-file appears or the bounded max duration expires.
+This tool never connects to or changes the Jetson/AP. Diagnostic modes stop only
+when their local stop-file appears or the bounded maximum duration expires.
 """
 import argparse
 import json
@@ -15,9 +15,12 @@ import serial
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'uart_benchmark/tools'))
 from benchmark_host import connect
 from wire8c import Decoder
+from analyze_dual_diag import analyze_capture
 
 FIRMWARE = 'sniffer-8d-csi-centric'
-EXPECTED_MODE = {'PROBE': 'PROBE_CAPTURE', 'HANDSHAKE_DIAG': 'HANDSHAKE_DIAG'}
+EXPECTED_MODE = {'PROBE': 'PROBE_CAPTURE', 'HANDSHAKE_DIAG': 'HANDSHAKE_DIAG',
+                 'HANDSHAKE_DUAL_DIAG': 'HANDSHAKE_DUAL_DIAG'}
+DIAGNOSTIC_MODES = ('HANDSHAKE_DIAG', 'HANDSHAKE_DUAL_DIAG')
 ERRORS = ('bad_header', 'crc_error', 'discarded_bytes', 'serial_discontinuity',
           'raw_metadata_conflict', 'incomplete_bytes')
 
@@ -54,12 +57,12 @@ def main():
     p.add_argument('--target', required=True)
     p.add_argument('--ap', required=True)
     p.add_argument('--baud', type=int, default=3000000)
-    p.add_argument('--mode', choices=('PROBE', 'HANDSHAKE_DIAG'), default='PROBE')
+    p.add_argument('--mode', choices=('PROBE', 'HANDSHAKE_DIAG', 'HANDSHAKE_DUAL_DIAG'), default='PROBE')
     p.add_argument('--duration', type=float, default=12.0,
                    help='PROBE sanity duration; ignored by HANDSHAKE_DIAG')
     p.add_argument('--max-duration', type=float, default=300.0)
     p.add_argument('--stop-file', type=Path,
-                   help='HANDSHAKE_DIAG ends after this local file is created')
+                   help='diagnostic mode ends after this local file is created')
     p.add_argument('--output', type=Path, required=True)
     a = p.parse_args()
 
@@ -70,13 +73,13 @@ def main():
         p.error('Invalid channel or baud')
     if a.mode == 'PROBE' and not 0 < a.duration <= 15:
         p.error('PROBE sanity duration must be 1..15 seconds')
-    if a.mode == 'HANDSHAKE_DIAG':
+    if a.mode in DIAGNOSTIC_MODES:
         if not a.stop_file:
-            p.error('HANDSHAKE_DIAG requires --stop-file')
+            p.error(f'{a.mode} requires --stop-file')
         if a.stop_file.exists():
             p.error('stop-file already exists; choose a new path')
         if not 0 < a.max_duration <= 300:
-            p.error('HANDSHAKE_DIAG max duration must be 1..300 seconds')
+            p.error('diagnostic max duration must be 1..300 seconds')
 
     a.target = a.target.lower()
     a.ap = a.ap.lower()
@@ -87,7 +90,8 @@ def main():
     final = None
     counters = {}
     cfg_counters = {}
-    records = {'CSI_DATA': 0, 'FRAME': 0}
+    records = {'CSI_DATA': 0, 'FRAME': 0, 'TIMELINE': 0}
+    timeline_rows = []
     stop_ack = False
     stop_reason = None
 
@@ -110,6 +114,11 @@ def main():
                                         host_mono_ns=time.monotonic_ns())) + '\n')
             if row['event'] in records:
                 records[row['event']] += 1
+            if row['event'] == 'TIMELINE':
+                timeline_rows.append(dict(record_serial=row['record_serial'],
+                                          host_time_ns=time.time_ns(),
+                                          host_mono_ns=time.monotonic_ns(),
+                                          counters=row.get('counters', {})))
             if row['event'] in ('CONTROL', 'STATS', 'FINAL'):
                 counters.update(row.get('counters', {}))
 
@@ -148,7 +157,7 @@ def main():
         if a.mode == 'PROBE':
             print(f'PASSIVE PROBE sanity armed on channel {a.channel} for {a.duration:.1f}s', flush=True)
         else:
-            print(f'HANDSHAKE_DIAG ARMED on channel {a.channel}; waiting for local stop-file '
+            print(f'{a.mode} ARMED on channel {a.channel}; waiting for local stop-file '
                   f'or {a.max_duration:.0f}s timeout. Jetson is untouched.', flush=True)
         last_report = started
         while True:
@@ -157,10 +166,10 @@ def main():
             if a.mode == 'PROBE' and elapsed >= a.duration:
                 stop_reason = 'duration'
                 break
-            if a.mode == 'HANDSHAKE_DIAG' and a.stop_file.exists():
+            if a.mode in DIAGNOSTIC_MODES and a.stop_file.exists():
                 stop_reason = 'stop_file'
                 break
-            if a.mode == 'HANDSHAKE_DIAG' and elapsed >= a.max_duration:
+            if a.mode in DIAGNOSTIC_MODES and elapsed >= a.max_duration:
                 stop_reason = 'max_duration'
                 break
             receive_chunk(raw, times)
@@ -168,7 +177,8 @@ def main():
                 last_report = now
                 print(f'[{elapsed:5.1f}s] csi_cb={counters.get("csi_cb_total", 0)} '
                       f'target_valid={counters.get("csi_target_valid", 0)} '
-                      f'diag_pair={counters.get("diag_pair_seen", 0)} '
+                      f'dual_csi_pair={counters.get("csi_pair", counters.get("diag_pair_seen", 0))} '
+                      f'dual_prom_pair={counters.get("prom_pair", 0)} '
                       f'CSI_DATA={records["CSI_DATA"]} '
                       f'queue_drop={counters.get("queue_drop", 0)} '
                       f'write_errors={counters.get("write_errors", 0)}', flush=True)
@@ -185,6 +195,9 @@ def main():
         raw.flush()
         times.flush()
 
+    (a.output / 'timeline.jsonl').write_text(
+        ''.join(json.dumps(row, ensure_ascii=False) + '\n' for row in timeline_rows), encoding='utf-8')
+
     health = decoder.finish()
     summary = dict(firmware=FIRMWARE, mode=a.mode, channel=a.channel,
                    duration_s=round(time.monotonic() - started, 3), stop_reason=stop_reason,
@@ -196,16 +209,33 @@ def main():
     sanity_failures = passive_sanity_failures(summary)
     summary['sanity_failures'] = sanity_failures
     (a.output / 'summary.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
+    analysis_error = None
+    if a.mode == 'HANDSHAKE_DUAL_DIAG' and final and stop_ack and not any(health.get(k, 0) for k in ERRORS):
+        try:
+            analysis = analyze_capture(a.output, a.target, a.ap)
+            summary['analysis'] = dict(summary_json='dual_diag_summary.json',
+                                       report='dual_diag_report.md',
+                                       private_pcap='analysis_private/combined_private.pcap',
+                                       handshake=analysis['handshake'],
+                                       csi_data=analysis['csi_data'])
+        except Exception as exc:  # Keep raw evidence and make analysis failure explicit.
+            analysis_error = f'{type(exc).__name__}: {exc}'
+            summary['analysis_error'] = analysis_error
+            (a.output / 'analysis_error.txt').write_text(analysis_error + '\n', encoding='utf-8')
+        (a.output / 'summary.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
     print(json.dumps(dict(mode=a.mode, stop_reason=stop_reason, records=records,
                           csi_cb=counters.get('csi_cb_total'),
                           target_valid=counters.get('csi_target_valid'),
                           diag_pair_seen=counters.get('diag_pair_seen'),
                           stop_ack=stop_ack, final_received=bool(final),
                           sanity_failures=sanity_failures,
+                          analysis_error=analysis_error,
                           transport=health), indent=2), flush=True)
     if sanity_failures:
         return 3
-    return 0 if final and stop_ack and not any(health.get(k, 0) for k in ERRORS) else 2
+    if not final or not stop_ack or any(health.get(k, 0) for k in ERRORS):
+        return 2
+    return 4 if analysis_error else 0
 
 
 if __name__ == '__main__':

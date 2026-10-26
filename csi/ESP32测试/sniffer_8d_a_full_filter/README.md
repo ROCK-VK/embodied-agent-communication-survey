@@ -1,49 +1,50 @@
-# sniffer-8d CSI-centric handshake diagnostic
+# sniffer-8d CSI-centric DUAL_DIAG
 
-ESP32-C5 / ESP-IDF 5.5.5。当前有效固件版本为 `sniffer-8d-csi-centric`。本版本把 CSI callback 自带的 802.11 `hdr/payload` 与 CSI 合并为同一条 `CSI_DATA` 原子记录；promiscuous callback 在 `HANDSHAKE_DIAG` 中只计数，不导出 FRAME，也不再参与跨 callback 配对。
+ESP32-C5 / ESP-IDF 5.5.5。当前源码候选保留同一条 CSI callback 原子记录路线；HANDSHAKE_DIAG 现场结果显示它只接受 clear EAPOL，而最近 25,925 条目标 pair CSI 全部是 Protected，因此按旧模式条件在 CSI_DATA 入队前返回。该结果没有证明空口不存在 EAPOL。
 
-## 当前主线：CSI-centric `HANDSHAKE_DIAG`
+新增 `HANDSHAKE_DUAL_DIAG` 用两条 callback 各做一件事：
 
-- CSI callback 从 MAC header 的 ToDS/FromDS、RA、TA 选择精确 Jetson↔AP 上下行；不再只依赖 `wifi_csi_info_t.mac`，也不导出第三方帧。
-- 对目标 pair 统计 Protected、clear、长度、LLC/SNAP 与 EtherType `0x888e`。只将 clear、未分片、非 A-MSDU、长度不超过256B、能通过 header/payload overlap 检查且 EtherType 为 `0x888e` 的候选导出。
-- 每条导出 `CSI_DATA` 保留同一 callback 的 `rx_ctrl`、header、API payload、`rx_seq`、CSI bytes、CSI valid/state/first-word-invalid 字段。即使估计无效或 CSI buffer 缺失，也保留可识别的 EAPOL frame，host 会标为 CSI 无效；不会用其他 callback 补齐。
-- 不强制 CSI callback 的 `mac` 等于 Jetson，避免丢掉 AP→Jetson M1/M3；以 802.11 header 的精确 STA/AP 地址和 DS 位判断方向。
-- `wpa2_gate8c.py` 先用 `wire8c.assemble_api_parts()` 严格校验并重建 CSI callback 的重叠指针区间，再运行与 FRAME 相同的 EAPOL-Key 解析。报告中的 `source_event`, `direction`, `record_serial`, `rx_seq`, `key_info`, `replay_counter` 和 `same_record_csi/csi_valid` 直接绑定在同一记录上。
-- 原 FRAME/RAW EAPOL parser 保留；CSI_DATA 主路径不要求 promiscuous 抓全4-way。PCAP和握手材料输出是本地私有数据，不提交公开仓库。
+| 路径 | 责任 | 导出条件 |
+|---|---|---|
+| Promiscuous | 提供握手帧材料，输出为 `FRAME` | 精确 Jetson↔AP pair、clear、未分片、非 A-MSDU、LLC/SNAP 且 EtherType `0x888e`；Protected 背景流只计数，不进入 RAW 队列 |
+| CSI callback | 提供最终业务 frame↔CSI 原子记录，输出为 `CSI_DATA` | 精确 pair 双向；CSI 有效；API payload 非空且不超过256B；header/payload 指针重叠布局一致；整条记录不超过缓冲容量。Protected 与 clear frame 都可保存 |
 
-### 采集命令
+两条路径不做跨 callback frame join。为完成 packet_id↔CSI，EAPOL 不要求来自 CSI callback：promiscuous 可提供 WPA2 解密所需握手，CSI_DATA 则必须把 Protected 业务帧和有效 CSI 放在同一记录内。历史 M3 确实来自 promiscuous FRAME；完整 M1–M4、解密和业务 packet_id 尚未验证。
 
-先做12秒被动 sanity（不要求用户断开 Jetson）：
+## 本轮离线验证状态
+
+- `HANDSHAKE_DUAL_DIAG`、双向 pair 过滤、受限 EAPOL RAW、Protected CSI_DATA 原子入队及时间桶代码已加入本分支。
+- 每200ms目标 pair 的聚合时间桶记录 promisc/CSI方向、clear/Protected、EAPOL、入队/导出与 drop计数；实际 start/end/span 随记录导出。另有累积 DUAL_STATS 和 STOP 时最后一个部分桶。
+- `capture_csi_diag.py` 可限时采集并保存 TIMELINE；收到正常 STOP/FINAL 且传输完整后调用 `analyze_dual_diag.py`，离线统计 FRAME/CSI_DATA 的 M1–M4来源、方向、serial/rx_seq、CSI有效性和受保护CSI数据。原始 stream、转换PCAP与握手明细均只保存在本机。
+- 本地 ESP-IDF 5.5.5 / Python 3.11.2 build 成功；app SHA 与大小见本轮离线结果报告。当前build**尚未烧录**，设备此刻实际运行版本未知；版本标签不能证明新 DUAL 代码已部署。
+- 离线回归共62项通过，包含过滤条件、双方向、QoS/非QoS、受保护业务帧、EAPOL M1–M4分类、错误/截断处理、时间桶和完整 host analyzer 合成流测试。Python工具语法检查通过。以上都不是实机握手或解密证明。
+
+## 下次现场流程
+
+先在本地安全环境把 `$TargetMac` / `$ApMac` 设为现场确认值，不要写进公开日志；以下仅为流程示意。
 
 ```powershell
-$TargetMac = "替换为本地确认的Jetson无线MAC"
-$ApMac = "替换为本地确认的AP BSSID"
-$SanityDir = "D:\CSI私有结果\sanity_本轮唯一目录"
+$SanityDir = "<本地私有目录>\sanity_<唯一名>"
 python tools/capture_csi_diag.py --port COM10 --channel 2 --target $TargetMac --ap $ApMac --mode PROBE --duration 12 --output $SanityDir
 ```
 
-sanity通过后，才启动一次有硬上限的手动握手采集：
+只有 sanity 读回 channel 2、有效目标 CSI 大于0且队列/RAW/CSI drop、UART、截断和 parser/CRC 错误均为0，才运行：
 
 ```powershell
-$RunDir = "D:\CSI私有结果\handshake_diag_本轮唯一目录"
+$RunDir = "<本地私有目录>\dual_diag_<唯一名>"
 $StopFile = Join-Path $RunDir "STOP"
-python tools/capture_csi_diag.py --port COM10 --channel 2 --target $TargetMac --ap $ApMac --mode HANDSHAKE_DIAG --max-duration 300 --stop-file $StopFile --output $RunDir
+python tools/capture_csi_diag.py --port COM10 --channel 2 --target $TargetMac --ap $ApMac --mode HANDSHAKE_DUAL_DIAG --max-duration 300 --stop-file $StopFile --output $RunDir
 ```
 
-工具只控制 ESP 串口，不操作 Jetson。确认 `HANDSHAKE_DIAG ARMED` 后由现场人员手动断开并连回一次；完成后创建指定 stop-file。窗口最多300秒，无重试。达到上限会自动 STOP。
+确认 DUAL_DIAG 已 ARMED 后，若现场需要采集握手，只由用户在 Jetson 本机手动断开并连回一次；连接恢复后观察约10–20秒，再创建 stop-file 结束采集。工具不操作 Jetson，不远程重关联、不自动重试，最长300秒后自动停止。采集结束后先读自动生成的私有报告；无论是否得到握手，都不在同一轮重复断连。
 
-离线解码（目标/AP地址只在本地命令行提供）：
+## 进入20个UDP与WPA2解密阶段的门槛
 
-```powershell
-python tools/wpa2_gate8c.py --capture <PRIVATE_CAPTURE_DIR> --output <PRIVATE_ANALYSIS_DIR> --target <JETSON_MAC> --ap <AP_MAC>
-```
+需要先有可用于 tshark 的真实、连贯 M1–M4，并确认其目标方向和 Key 信息；这只是握手分类，仍需由本机既有解密 profile 完成私有解密检查。之后再发送20个48B CSID UDP，保留 sender/receiver CRC日志；对同轮 CSI_DATA 做解密和关联。至少一个 packet_id 与发送、接收记录一致，且其对应同一 CSI_DATA 含有效 CSI，才算最小 PoC 成功。不假设一个 UDP 必定对应一个 Wi-Fi frame 或一个 CSI。
 
-**进入下一阶段的门槛**：离线报告明确指出CSI_DATA中的 M1–M4、方向、record_serial/rx_seq 与同记录 CSI 有效性；分类不等于MIC验证或WPA2解密。若缺消息，先分析本轮结果，不自动重连。Jetson网络、AP、eth0、ROS/DDS和其他服务均不由该工具改动。
+所有 MAC、SSID/PSK、nonce/MIC、原始 FRAME、Protected payload、PCAP、SSH/现场地址与解密结果均不得公开。旧 FRAME parser 保留作辅助；full promiscuous filter 保持既有设置，不再研究其根因。
 
-### 新版本离线回归
-
-- 8d工具全套：44项通过，1项可选 tshark 集成测试跳过；旧 `sniffer_8_csi` WPA2工具全套：16项通过，1项可选测试跳过。
-- 测试仅使用合成帧，不代表已取得真实握手、完成WPA2解密或恢复业务 `packet_id`。
+详细实现、过滤原因分析、build SHA及限制见[DUAL_DIAG离线审计报告](../结果/real_poc_dual_diag_offline_20261026.md)。
 
 ---
 
