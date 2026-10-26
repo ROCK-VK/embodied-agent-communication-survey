@@ -69,3 +69,8 @@
 - 只捕获并解析到一条 EAPOL-Key M3；M1、M2、M4均0，完整四次握手不成立。CSI_DATA原子记录0，未做WPA2解密或packet_id关联。
 - 单次结果未达到握手门槛；不再自动/重复重连。详细匿名报告见[单次手动重连结果](../结果/real_poc_8da_manual_reconnect_20261026.md)。
 - 详细匿名统计见[候选构建、烧录与被动 sanity 报告](../结果/real_poc_8da_candidate_build_flash_sanity_20261021.md)。
+
+### 2026-10-26 M3 周边离线核验
+
+- 该轮raw只含一条M3；host parser、单帧PCAP和tshark均识别同一消息。M1/M2/M4在raw日志中无可识别记录，空口缺失与固件候选过滤尚无法区分。
+- 已加入只改变HANDSHAKE_ONLY统计、不改变候选筛选和逐包导出的拒绝原因计数。27项离线回归通过，IDF 5.5.5隔离本机构建通过；尚未烧录。详见[匿名离线分层审计](../结果/real_poc_8da_manual_reconnect_20261026.md)。

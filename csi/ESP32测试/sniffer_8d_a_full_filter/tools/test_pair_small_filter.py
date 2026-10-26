@@ -38,8 +38,11 @@ class PairSmallFilterTests(unittest.TestCase):
         self.assertIn("if(target_related)atomic_fetch_add(&prom_target_related_data,1);", source)
         self.assertIn("if(!target_related)return;", source)
         self.assertIn("bool eapol=is_eapol(p->payload,n,h);", source)
-        self.assertIn("if(!eapol && !pair_small)return;", source)
+        self.assertIn("if(!eapol && !pair_small) {", source)
+        self.assertIn("atomic_fetch_add(&hs_up_clear_small,1);", source)
+        self.assertIn("atomic_fetch_add(&hs_filter_protected,1);", source)
         self.assertIn(r'\"prom_target_related_data\":%u,\"pair_seen\":%u,\"pair_frames\":%u', source)
+        self.assertIn(r'\"hs_up_seen\":%u,\"hs_down_seen\":%u', source)
 
 
 if __name__ == "__main__":

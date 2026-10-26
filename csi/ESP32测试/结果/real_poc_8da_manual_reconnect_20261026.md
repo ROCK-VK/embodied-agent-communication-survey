@@ -30,3 +30,11 @@
 - 后续先基于当前捕获做离线分析；再次实机重连必须有新的明确任务安排，仍只能现场手动单次操作，Codex不远程重关联、不自动retry。
 
 私有原始流和 PCAP 留在本机 `ESP32测试/结果/real_poc_8da_manual_reconnect_20261026_174716/`。
+
+## 2026-10-26 M3 锚点离线分层审计
+
+- 原始串流只有1条 `FRAME`（record 120）；本地 parser 接受为 EAPOL-Key M3，`rejected_eapol=0`。PCAP只有1帧；tshark退出码0并识别为M3、key_info=`0x13ca`、replay counter=2。M1/M2/M4没有已识别的raw/host/PCAP/tshark记录。
+- `prom_target_related_data=66`、`pair_seen=66`，但`pair_frames=1`。M3附近约1.01秒统计桶内另有3个目标相关Data callback没有逐帧raw记录；当前无法判断它们的FC、方向、Protected、长度，也不能把它们认定为M1/M2/M4。对这三条握手消息，缺失最早发生在raw导出之前，但“空口未收到”与“固件候选过滤未保留”暂不能区分；没有证据显示host parser、PCAP或tshark丢帧。
+- 源码审计发现 HANDSHAKE_ONLY raw候选 gate 对未接纳帧静默返回，未计数拒绝原因。已在本地源码增加上下行、Protected/clear-small和候选过滤原因的聚合统计；不改变筛选条件或每包导出行为。CSI callback在HANDSHAKE_ONLY仍只计数、不输出CSI_DATA，目标CSI计数不能替代逐帧记录。
+- 27项相关离线测试通过（1项既有可选项跳过）；IDF 5.5.5隔离本机构建通过。新 app SHA256=`FB75DA54FF19930AF38C8FE6749C1E96FBA929B0BEF8AFACDACBBDF4A23DB979`；该构建**未烧录**，仍需将其视为未部署源码候选。没有再次连接、重连或操作硬件。
+- 现场地址、EAPOL字节、nonce/MIC、私有串口流和PCAP仍留本机；逐字段私有审计另存本地，不发布。
