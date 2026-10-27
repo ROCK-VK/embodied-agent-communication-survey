@@ -44,4 +44,3 @@ promisc 唯一 clear pair 帧满足 LLC/SNAP 与 EtherType 0x888e，进入 FRAME
 3. 82 条 Protected pair 帧只计数、不入 FRAME；本轮只有 1 条 clear pair 帧，且它成功成为 EAPOL 候选并落盘。因此没有证据表明 M2/M3/M4 被后续 EAPOL gate 拒绝；只能说本次 callback 输出中没有其他 clear target pair 帧被观察/分类。
 4. 641 条 CSI pair 回调均被标为 Protected；本轮握手没有以 clear EAPOL 形式出现在 CSI_DATA 中。Path A 的 M1 与 Path B 的 CSI_DATA 不是同一 record，不能据此声称握手帧已有 CSI 原子对应。
 5. 本次手动断开/恢复周期已用完。不要在本轮再断开 Jetson，也不要进入 UDP/解密阶段。后续先离线审视这次 EAPOL 观测与捕获时间窗；下一次现场周期需单独安排并再次确认。
-
