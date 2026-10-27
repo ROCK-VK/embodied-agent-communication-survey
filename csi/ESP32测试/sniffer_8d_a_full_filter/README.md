@@ -16,7 +16,7 @@ ESP32-C5 / ESP-IDF 5.5.5。当前源码候选保留同一条 CSI callback 原子
 - `HANDSHAKE_DUAL_DIAG`、双向 pair 过滤、受限 EAPOL RAW、Protected CSI_DATA 原子入队及时间桶代码已加入本分支。
 - 每200ms目标 pair 的聚合时间桶记录 promisc/CSI方向、clear/Protected、EAPOL、入队/导出与 drop计数；实际 start/end/span 随记录导出。另有累积 DUAL_STATS 和 STOP 时最后一个部分桶。
 - `capture_csi_diag.py` 可限时采集并保存 TIMELINE；收到正常 STOP/FINAL 且传输完整后调用 `analyze_dual_diag.py`，离线统计 FRAME/CSI_DATA 的 M1–M4来源、方向、serial/rx_seq、CSI有效性和受保护CSI数据。原始 stream、转换PCAP与握手明细均只保存在本机。
-- 本地 ESP-IDF 5.5.5 / Python 3.11.2 build 成功；app SHA 与大小见本轮离线结果报告。当前build**尚未烧录**，设备此刻实际运行版本未知；版本标签不能证明新 DUAL 代码已部署。
+- 本地 ESP-IDF 5.5.5 / Python 3.11.2 build 成功。2026-10-27 已 app-only 烧录候选固件，esptool 写入校验通过；12.14 秒 PROBE sanity 读回 channel 2、目标有效 CSI 43、CSI_DATA 1，错误和 drop 为 0。DUAL_DIAG 捕获握手仍待实机验证。
 - 离线回归共62项通过，包含过滤条件、双方向、QoS/非QoS、受保护业务帧、EAPOL M1–M4分类、错误/截断处理、时间桶和完整 host analyzer 合成流测试。Python工具语法检查通过。以上都不是实机握手或解密证明。
 
 ## 下次现场流程
@@ -28,7 +28,7 @@ $SanityDir = "<本地私有目录>\sanity_<唯一名>"
 python tools/capture_csi_diag.py --port COM10 --channel 2 --target $TargetMac --ap $ApMac --mode PROBE --duration 12 --output $SanityDir
 ```
 
-只有 sanity 读回 channel 2、有效目标 CSI 大于0且队列/RAW/CSI drop、UART、截断和 parser/CRC 错误均为0，才运行：
+本轮 PROBE sanity 已满足上述门槛；下次只需重新读回 channel 2、CSI及错误计数，然后可运行：
 
 ```powershell
 $RunDir = "<本地私有目录>\dual_diag_<唯一名>"
@@ -36,7 +36,9 @@ $StopFile = Join-Path $RunDir "STOP"
 python tools/capture_csi_diag.py --port COM10 --channel 2 --target $TargetMac --ap $ApMac --mode HANDSHAKE_DUAL_DIAG --max-duration 300 --stop-file $StopFile --output $RunDir
 ```
 
-确认 DUAL_DIAG 已 ARMED 后，若现场需要采集握手，只由用户在 Jetson 本机手动断开并连回一次；连接恢复后观察约10–20秒，再创建 stop-file 结束采集。工具不操作 Jetson，不远程重关联、不自动重试，最长300秒后自动停止。采集结束后先读自动生成的私有报告；无论是否得到握手，都不在同一轮重复断连。
+确认 DUAL_DIAG 已 ARMED、channel 2及目标 CSI持续正常后，才由用户在 Jetson 本机手动断开并连回一次；连接恢复后观察约10–20秒，再创建 stop-file 结束采集。工具不操作 Jetson，不远程重关联、不自动重试，最长300秒后自动停止。采集结束后先读自动生成的私有报告；无论是否得到握手，都不在同一轮重复断连。
+
+本次烧录与 PROBE sanity 的脱敏统计见[2026-10-27现场结果](../结果/real_poc_dual_diag_flash_sanity_20261027.md)。
 
 ## 进入20个UDP与WPA2解密阶段的门槛
 
