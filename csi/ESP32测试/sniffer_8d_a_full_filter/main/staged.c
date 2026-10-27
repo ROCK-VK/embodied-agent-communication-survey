@@ -1,6 +1,53 @@
 // Real RF path and explicitly marked synthetic engineering path share callbacks.
 #include "capture_core.inc"
 static atomic_bool synth_task_running;
+static void open_ap_wifi_event(void *arg,esp_event_base_t base,int32_t id,void *data){
+ (void)arg;
+ if(base!=WIFI_EVENT)return;
+ if(id==WIFI_EVENT_AP_STACONNECTED){
+  wifi_event_ap_staconnected_t *event=(wifi_event_ap_staconnected_t*)data;
+  memcpy(target,event->mac,6);atomic_store(&open_ap_station_connected,true);
+  open_ap_stats_control("AP_STA_CONNECTED");
+ }else if(id==WIFI_EVENT_AP_STADISCONNECTED){
+  wifi_event_ap_stadisconnected_t *event=(wifi_event_ap_stadisconnected_t*)data;
+  if(same(target,event->mac)){memset(target,0,sizeof(target));atomic_store(&open_ap_station_connected,false);}
+  open_ap_stats_control("AP_STA_DISCONNECTED");
+ }
+}
+static int decode_probe_datagram(const uint8_t *p,int n,uint32_t *run_id,uint32_t *packet_id,uint64_t *sender_ns){
+ if(n!=UDP_PROBE_PACKET_LEN||memcmp(p,"CSID",4)!=0)return -2;
+ if(p[4]!=1||p[5]!=28||le16(p+6)!=0||le16(p+24)!=16||le16(p+26)!=0)return -2;
+ *run_id=get32(p+8);*packet_id=get32(p+12);*sender_ns=get64(p+16);
+ if(get32(p+44)!=crc32(p,44))return -1;
+ for(unsigned i=0;i<16;i++)if(p[28+i]!=(uint8_t)(*packet_id+i))return 0;
+ return 1;
+}
+static void udp_receiver_task(void *arg){
+ (void)arg;int fd=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
+ if(fd<0){atomic_store(&udp_server_error,(unsigned)errno);vTaskDelete(NULL);return;}
+ struct timeval timeout={.tv_sec=0,.tv_usec=500000};
+ (void)setsockopt(fd,SOL_SOCKET,SO_RCVTIMEO,&timeout,sizeof(timeout));
+ struct sockaddr_in addr={0};addr.sin_family=AF_INET;addr.sin_port=htons(UDP_PROBE_PORT);addr.sin_addr.s_addr=htonl(INADDR_ANY);
+ if(bind(fd,(struct sockaddr*)&addr,sizeof(addr))<0){atomic_store(&udp_server_error,(unsigned)errno);close(fd);vTaskDelete(NULL);return;}
+ atomic_store(&udp_server_ready,true);uint8_t packet[512];
+ for(;;){
+  struct sockaddr_in peer;socklen_t peer_len=sizeof(peer);
+  int n=recvfrom(fd,packet,sizeof(packet),0,(struct sockaddr*)&peer,&peer_len);
+  if(n<0){if(errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR)continue;atomic_store(&udp_server_error,(unsigned)errno);vTaskDelay(pdMS_TO_TICKS(100));continue;}
+  if(!atomic_load(&udp_server_active)||atomic_load(&capture_mode)!=MODE_OPEN_AP_POC)continue;
+  atomic_fetch_add(&udp_rx_total,1);uint32_t run_id=0,packet_id=0;uint64_t sender_ns=0;
+  int verdict=decode_probe_datagram(packet,n,&run_id,&packet_id,&sender_ns);bool valid=verdict==1,crc_ok=verdict>=0,duplicate=false;
+  if(verdict==-1)atomic_fetch_add(&udp_crc_fail,1);
+  if(crc_ok)atomic_fetch_add(&udp_crc_ok,1);
+  if(verdict==1){
+   atomic_fetch_add(&udp_valid,1);
+   for(unsigned i=0;i<udp_seen_count;i++)if(udp_seen[i].run_id==run_id&&udp_seen[i].packet_id==packet_id){duplicate=true;break;}
+   if(duplicate)atomic_fetch_add(&udp_duplicate,1);
+   else{if(udp_seen_count<UDP_PROBE_SEEN_CAP){udp_seen[udp_seen_count].run_id=run_id;udp_seen[udp_seen_count].packet_id=packet_id;udp_seen_count++;}atomic_fetch_add(&udp_unique,1);}
+  }else atomic_fetch_add(&udp_invalid,1);
+  open_ap_udp_rx_control(run_id,packet_id,sender_ns,(uint64_t)esp_timer_get_time(),valid,crc_ok,duplicate,(unsigned)n);
+ }
+}
 static void synth_task(void *arg){
  (void)arg;
  static uint8_t frame[1700],csibuf[114];
@@ -31,34 +78,69 @@ static void synth_task(void *arg){
 static void configure(bool synth){
  synthetic_only=synth;
  ESP_ERROR_CHECK(nvs_flash_init());ESP_ERROR_CHECK(esp_netif_init());ESP_ERROR_CHECK(esp_event_loop_create_default());
+ if(open_ap_configured)open_ap_netif=esp_netif_create_default_wifi_ap();
  wifi_init_config_t init=WIFI_INIT_CONFIG_DEFAULT();ESP_ERROR_CHECK(esp_wifi_init(&init));
- ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_NULL));
- ESP_ERROR_CHECK(esp_wifi_set_country_code("CN",false));ESP_ERROR_CHECK(esp_wifi_start());ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+ ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));ESP_ERROR_CHECK(esp_wifi_set_country_code("CN",false));
+ if(open_ap_configured){
+  ESP_ERROR_CHECK(esp_wifi_set_band_mode(WIFI_BAND_MODE_2G_ONLY));
+  ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT,ESP_EVENT_ANY_ID,open_ap_wifi_event,NULL));
+  ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));wifi_config_t cfg={0};
+  size_t ssid_len=strlen(open_ap_ssid);memcpy(cfg.ap.ssid,open_ap_ssid,ssid_len);cfg.ap.ssid_len=ssid_len;
+  cfg.ap.channel=(uint8_t)channel;cfg.ap.authmode=WIFI_AUTH_OPEN;cfg.ap.max_connection=1;cfg.ap.ssid_hidden=0;cfg.ap.beacon_interval=100;
+  ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP,&cfg));ESP_ERROR_CHECK(esp_wifi_set_bandwidth(WIFI_IF_AP,WIFI_BW_HT20));
+  ESP_ERROR_CHECK(esp_wifi_start());ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+  ESP_ERROR_CHECK(esp_wifi_get_mac(WIFI_IF_AP,ap));
+  wifi_bandwidth_t bw=WIFI_BW20;esp_err_t bw_err=esp_wifi_get_bandwidth(WIFI_IF_AP,&bw);
+  open_ap_bandwidth_mhz=(bw_err==ESP_OK&&bw==WIFI_BW_HT20)?20:(bw_err==ESP_OK&&bw==WIFI_BW_HT40)?40:0;
+  esp_err_t err_c=esp_wifi_get_channel(&actual_chan,&actual_sec);esp_err_t err_m=esp_wifi_get_mode(&actual_mode);
+  channel_readback_ok=(err_c==ESP_OK&&err_m==ESP_OK&&actual_chan==channel&&actual_mode==WIFI_MODE_AP&&open_ap_bandwidth_mhz==20);
+  esp_netif_ip_info_t ip_info={0};
+  if(esp_netif_get_ip_info(open_ap_netif,&ip_info)==ESP_OK)snprintf(open_ap_ip,sizeof(open_ap_ip),IPSTR,IP2STR(&ip_info.ip));
+ }else{
+  ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_NULL));ESP_ERROR_CHECK(esp_wifi_start());ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+ }
  // Synthetic session deliberately NEVER enables promiscuous RX or CSI capture.
  pool=calloc(DEPTH,sizeof(event_t));configASSERT(pool);free_slots=xQueueCreate(DEPTH,sizeof(event_t*));events=xQueueCreate(DEPTH,sizeof(event_t*));configASSERT(free_slots&&events);
  for(unsigned i=0;i<DEPTH;i++){event_t*e=&pool[i];configASSERT(xQueueSend(free_slots,&e,0)==pdTRUE);}
  if(!synth){
-  ESP_ERROR_CHECK(esp_wifi_set_band_mode(channel>14?WIFI_BAND_MODE_5G_ONLY:WIFI_BAND_MODE_2G_ONLY));ESP_ERROR_CHECK(esp_wifi_set_channel(channel,WIFI_SECOND_CHAN_NONE));
-  esp_err_t err_c = esp_wifi_get_channel(&actual_chan, &actual_sec);
-  esp_err_t err_m = esp_wifi_get_mode(&actual_mode);
-  channel_readback_ok = (err_c == ESP_OK && err_m == ESP_OK && actual_chan == channel && actual_mode == WIFI_MODE_NULL);
-  wifi_promiscuous_filter_t f={.filter_mask=WIFI_PROMIS_FILTER_MASK_MGMT|WIFI_PROMIS_FILTER_MASK_CTRL|WIFI_PROMIS_FILTER_MASK_DATA|WIFI_PROMIS_FILTER_MASK_MISC};ESP_ERROR_CHECK(esp_wifi_set_promiscuous_filter(&f));ESP_ERROR_CHECK(esp_wifi_set_promiscuous_rx_cb(prom_cb));
+  if(!open_ap_configured){
+   ESP_ERROR_CHECK(esp_wifi_set_band_mode(channel>14?WIFI_BAND_MODE_5G_ONLY:WIFI_BAND_MODE_2G_ONLY));ESP_ERROR_CHECK(esp_wifi_set_channel(channel,WIFI_SECOND_CHAN_NONE));
+   esp_err_t err_c=esp_wifi_get_channel(&actual_chan,&actual_sec);esp_err_t err_m=esp_wifi_get_mode(&actual_mode);
+   channel_readback_ok=(err_c==ESP_OK&&err_m==ESP_OK&&actual_chan==channel&&actual_mode==WIFI_MODE_NULL);
+   wifi_promiscuous_filter_t f={.filter_mask=WIFI_PROMIS_FILTER_MASK_MGMT|WIFI_PROMIS_FILTER_MASK_CTRL|WIFI_PROMIS_FILTER_MASK_DATA|WIFI_PROMIS_FILTER_MASK_MISC};ESP_ERROR_CHECK(esp_wifi_set_promiscuous_filter(&f));ESP_ERROR_CHECK(esp_wifi_set_promiscuous_rx_cb(prom_cb));
+  }
   wifi_csi_config_t c={.enable=1,.acquire_csi_legacy=1,.acquire_csi_force_lltf=0,.acquire_csi_ht20=1,.acquire_csi_ht40=1,.acquire_csi_vht=1,.acquire_csi_su=1,.acquire_csi_mu=1,.acquire_csi_dcm=1,.acquire_csi_beamformed=1,.acquire_csi_he_stbc_mode=2,.val_scale_cfg=0,.dump_ack_en=0,.lltf_bit_mode=0};
   ESP_ERROR_CHECK(esp_wifi_set_csi_config(&c));ESP_ERROR_CHECK(esp_wifi_set_csi_rx_cb(csi_cb,NULL));
  }
- configured=true;configASSERT(xTaskCreate(output_task,"staged_uart",6144,NULL,5,NULL)==pdPASS);control_event="CONFIGURED";control(7);
+ configured=true;configASSERT(xTaskCreate(output_task,"staged_uart",6144,NULL,5,NULL)==pdPASS);
+ if(open_ap_configured){
+  configASSERT(xTaskCreate(udp_receiver_task,"open_ap_udp",4096,NULL,5,NULL)==pdPASS);
+  for(unsigned i=0;i<20&&!atomic_load(&udp_server_ready)&&!U(udp_server_error);i++)vTaskDelay(pdMS_TO_TICKS(100));
+  open_ap_stats_control(atomic_load(&udp_server_ready)?"OPEN_AP_READY":"OPEN_AP_UDP_ERROR");
+ }else{control_event="CONFIGURED";control(7);}
 }
 static void change_mode(unsigned mode){
  unsigned old_mode=atomic_load(&capture_mode);
  atomic_store(&capture_mode,MODE_STOP);atomic_store(&synthetic_active,false);
  while(atomic_load(&synth_task_running))vTaskDelay(1);
- if(rf_capture_enabled){ESP_ERROR_CHECK(esp_wifi_set_csi(false));ESP_ERROR_CHECK(esp_wifi_set_promiscuous(false));rf_capture_enabled=false;}
+ if(rf_capture_enabled){ESP_ERROR_CHECK(esp_wifi_set_csi(false));if(promisc_capture_enabled){ESP_ERROR_CHECK(esp_wifi_set_promiscuous(false));promisc_capture_enabled=false;}rf_capture_enabled=false;}
  drain();
  if(old_mode==MODE_HANDSHAKE_DUAL_DIAG&&mode!=MODE_HANDSHAKE_DUAL_DIAG){uint64_t now=esp_timer_get_time();timeline_flush(now,true);dual_stats(now);atomic_store(&dual_capture_active,false);}
+ if(open_ap_configured&&old_mode==MODE_OPEN_AP_POC&&mode==MODE_STOP)open_ap_stats_control("OPEN_AP_FINAL_STATS");
  xSemaphoreTakeRecursive(tx_mutex,portMAX_DELAY);atomic_fetch_add(&mode_epoch,1);
  if(mode==MODE_HANDSHAKE_DUAL_DIAG){dual_reset(esp_timer_get_time());atomic_store(&dual_capture_active,true);}
  atomic_store(&capture_mode,mode);
- if(mode!=MODE_STOP&&!synthetic_only){ESP_ERROR_CHECK(esp_wifi_set_promiscuous(true));ESP_ERROR_CHECK(esp_wifi_set_csi(true));rf_capture_enabled=true;}
+ if(mode!=MODE_STOP&&!synthetic_only){
+  if(open_ap_configured){
+   if(mode!=MODE_OPEN_AP_POC){atomic_store(&capture_mode,MODE_STOP);control_event="OPEN_AP_MODE_REQUIRED";control(7);xSemaphoreGiveRecursive(tx_mutex);return;}
+   atomic_store(&open_pair_csi,0);atomic_store(&open_uplink_csi,0);atomic_store(&open_downlink_csi,0);
+   atomic_store(&open_data_frame,0);atomic_store(&open_qos_data,0);atomic_store(&open_non_qos_data,0);
+   atomic_store(&open_clear_data,0);atomic_store(&open_protected_data,0);atomic_store(&open_csi_data_enqueued,0);atomic_store(&open_csi_data_output,0);
+   atomic_store(&open_csid_magic_seen,0);atomic_store(&open_csid_packet_id_parsed,0);
+   atomic_store(&udp_rx_total,0);atomic_store(&udp_valid,0);atomic_store(&udp_crc_ok,0);atomic_store(&udp_crc_fail,0);atomic_store(&udp_invalid,0);atomic_store(&udp_duplicate,0);atomic_store(&udp_unique,0);udp_seen_count=0;
+   atomic_store(&udp_server_active,true);ESP_ERROR_CHECK(esp_wifi_set_csi(true));rf_capture_enabled=true;
+  }else{ESP_ERROR_CHECK(esp_wifi_set_promiscuous(true));promisc_capture_enabled=true;ESP_ERROR_CHECK(esp_wifi_set_csi(true));rf_capture_enabled=true;}
+ }else if(mode==MODE_STOP)atomic_store(&udp_server_active,false);
  control_event="MODE_ACK";control(7); // ACK only after setup; prior mode drained, counters cumulative.
  xSemaphoreGiveRecursive(tx_mutex);
  if(mode==MODE_STOP){control(FINAL);uart_wait_tx_done(UART_NUM_0,pdMS_TO_TICKS(5000));}
@@ -68,7 +150,7 @@ void app_main(void){
  ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0,2048,16384,0,NULL,0));esp_vfs_dev_uart_use_driver(UART_NUM_0);tx_mutex=xSemaphoreCreateRecursiveMutex();configASSERT(tx_mutex);
  uint32_t actual;ESP_ERROR_CHECK(uart_get_baudrate(UART_NUM_0,&actual));
  wifi_pkt_rx_ctrl_t sm={0},dm={0};sm.sig_len=0x3fff;dm.dump_len=0x3fff;
-  printf("{\"event\":\"READY\",\"version\":\"sniffer-8d-csi-centric\",\"baud\":%u,\"rx_ctrl_size\":%u,\"candidate_max\":%u,\"sig_first_byte\":%u,\"dump_first_byte\":%u,\"mac_version\":%u,\"rf_capture_enabled\":false}\n",(unsigned)actual,(unsigned)sizeof(wifi_pkt_rx_ctrl_t),CANDIDATE_MAX,first_set(&sm),first_set(&dm),CONFIG_SOC_WIFI_MAC_VERSION_NUM);
+  printf("{\"event\":\"READY\",\"version\":\"sniffer-8d-csi-centric\",\"open_ap_poc\":true,\"baud\":%u,\"rx_ctrl_size\":%u,\"candidate_max\":%u,\"sig_first_byte\":%u,\"dump_first_byte\":%u,\"mac_version\":%u,\"rf_capture_enabled\":false}\n",(unsigned)actual,(unsigned)sizeof(wifi_pkt_rx_ctrl_t),CANDIDATE_MAX,first_set(&sm),first_set(&dm),CONFIG_SOC_WIFI_MAC_VERSION_NUM);
  char line[180];unsigned baud,ch,m[6],a[6],rate,seconds;
  for(;;){
   if(!fgets(line,sizeof(line),stdin)){vTaskDelay(1);continue;}
@@ -77,12 +159,14 @@ void app_main(void){
    printf("{\"event\":\"BAUD_ACK\",\"requested\":%u}\n",baud);uart_wait_tx_done(UART_NUM_0,pdMS_TO_TICKS(2000));vTaskDelay(pdMS_TO_TICKS(150));ESP_ERROR_CHECK(uart_set_baudrate(UART_NUM_0,baud));ESP_ERROR_CHECK(uart_get_baudrate(UART_NUM_0,&actual));printf("{\"event\":\"BAUD_READY\",\"requested\":%u,\"actual\":%u}\n",baud,(unsigned)actual);
   }else if(!configured&&!strcmp(line,"CFG,SYNTH")){
    channel=2;target[0]=ap[0]=2;target[5]=1;ap[5]=2;configure(true);
+  }else if(!configured&&sscanf(line,"CFG_OPEN_AP,%u,%32[^,\r\n]",&ch,open_ap_ssid)==2&&ch==2&&open_ap_ssid[0]){
+   channel=ch;open_ap_configured=true;configure(false);
   }else if(!configured&&sscanf(line,"CFG,%u,%x:%x:%x:%x:%x:%x,%x:%x:%x:%x:%x:%x",&ch,&m[0],&m[1],&m[2],&m[3],&m[4],&m[5],&a[0],&a[1],&a[2],&a[3],&a[4],&a[5])==13&&ch>0&&ch<200){
    bool ok=true;for(unsigned i=0;i<6;i++)if(m[i]>255||a[i]>255)ok=false;
    if(ok){channel=ch;for(unsigned i=0;i<6;i++){target[i]=m[i];ap[i]=a[i];}configure(false);}
-  }else if(configured&&(!strcmp(line,"MODE HANDSHAKE")||!strcmp(line,"MODE HANDSHAKE_DIAG")||!strcmp(line,"MODE HANDSHAKE_DUAL_DIAG")||!strcmp(line,"MODE PROBE")||!strcmp(line,"MODE STOP"))){
+  }else if(configured&&(!strcmp(line,"MODE HANDSHAKE")||!strcmp(line,"MODE HANDSHAKE_DIAG")||!strcmp(line,"MODE HANDSHAKE_DUAL_DIAG")||!strcmp(line,"MODE PROBE")||!strcmp(line,"MODE OPEN_AP_POC")||!strcmp(line,"MODE STOP"))){
    if(atomic_load(&synthetic_active)&&strcmp(line,"MODE STOP")){control_event="BUSY";control(7);continue;}
-    change_mode(!strcmp(line,"MODE HANDSHAKE")?MODE_HANDSHAKE:!strcmp(line,"MODE HANDSHAKE_DIAG")?MODE_HANDSHAKE_DIAG:!strcmp(line,"MODE HANDSHAKE_DUAL_DIAG")?MODE_HANDSHAKE_DUAL_DIAG:!strcmp(line,"MODE PROBE")?MODE_PROBE:MODE_STOP);
+    change_mode(!strcmp(line,"MODE HANDSHAKE")?MODE_HANDSHAKE:!strcmp(line,"MODE HANDSHAKE_DIAG")?MODE_HANDSHAKE_DIAG:!strcmp(line,"MODE HANDSHAKE_DUAL_DIAG")?MODE_HANDSHAKE_DUAL_DIAG:!strcmp(line,"MODE PROBE")?MODE_PROBE:!strcmp(line,"MODE OPEN_AP_POC")?MODE_OPEN_AP_POC:MODE_STOP);
   }else if(configured&&synthetic_only&&!atomic_load(&synthetic_active)&&atomic_load(&capture_mode)!=MODE_STOP&&sscanf(line,"SYNTH %u %u",&rate,&seconds)==2&&rate>0&&rate<=200&&seconds>0&&seconds<=30){
    synth_rate=rate;synth_seconds=seconds;atomic_store(&synthetic_active,true);atomic_store(&synth_task_running,true);control_event="SYNTH_ACK";control(7);configASSERT(xTaskCreate(synth_task,"synthetic_callbacks",6144,NULL,6,NULL)==pdPASS);
   }else if(configured){control_event="ERROR";control(7);}

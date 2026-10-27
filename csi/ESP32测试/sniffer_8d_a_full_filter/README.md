@@ -1,4 +1,23 @@
-# sniffer-8d CSI-centric DUAL_DIAG
+# sniffer-8d CSI-centric：当前 OPEN_AP_POC / 历史 DUAL_DIAG
+
+更新：2026-10-27。当前唯一推进的实机目标是 Open SoftAP 明文 UDP → 同记录 CSI_DATA；不再开展 WPA2 handshake/M1–M4 捕获。
+
+## 当前：OPEN_AP_POC（已离线实现，未烧录）
+
+- 独立模式 `OPEN_AP_POC`；原 `PROBE`、`HANDSHAKE_DIAG`、`HANDSHAKE_DUAL_DIAG` 保留。
+- 运行时命令 `CFG_OPEN_AP,2,<SSID>` 配置 2.4 GHz、channel 2、HT20、`WIFI_AUTH_OPEN` SoftAP；SSID 默认 `CSI-C5-OPEN-POC`，不保存到 NVS。ESP UDP receiver 监听端口 39001。
+- 关联 station 后根据 AP 事件确定目标 MAC；CSI callback 只导出 AP 与已关联 station 的有效 CSI 原子记录，保留 header/payload/CSI，并统计方向、Data/QoS、Protected/clear、CSID与队列/传输健康。
+- 复用 `udp_probe_protocol.py` 里的 48-byte CSID payload。ESP socket CRC-valid UDP_RX 是接收侧 ground truth；host 只有从同一条有效 CSI_DATA 恢复到相同 `run_id/packet_id` 才给出 PoC PASS，不用时间或序号猜测。
+- Jetson发送：`python tools/send_open_ap_probe.py --destination <ESP_AP_IP> --run-id <整数> --output <私有目录>/sender.jsonl`。默认20包、150ms间隔，可用 `--count` 降至1–20；每次运行使用新日志路径。
+- ESP UART采集：`python tools/capture_open_ap_poc.py --port COM10 --stop-file <私有目录>/STOP --output <新的私有目录>`。工具将自动配置SoftAP并ARM，最多300秒；它不会改Jetson网络，也不会发业务UDP。只在用户现场确认后才手动切换Jetson。
+- 离线验证：完整 Python unittest运行77项，76项通过、1项跳过；Open AP专项9项全部通过；4个新增Python工具 `py_compile`通过。IDF 5.5.5/Python 3.11.2 build成功，app 963,984 bytes，SHA-256 `312238DB6B43134EF8AE2CAAE77723C07D114CC0C29AA5316CFDBCA26F3A34FA`。未烧录、未启动AP、未发送UDP，尚无真实 Open AP / CSI 结果。
+- 实验室顺序：先核实板上固件并完成 ESP-only SoftAP/channel/BW/UDP/CSI sanity；之后另行通知用户，取得明确确认后用户手动将 Jetson USB Wi-Fi 切到 SoftAP。只做一轮20包，不自动重试。Jetson `eth0`、ROS/DDS、Go2/MID360 不操作。
+
+构建与边界见[Open AP离线实现与构建报告](../结果/open_ap_poc_offline_20261027.md)。
+
+---
+
+## 历史：sniffer-8d CSI-centric DUAL_DIAG（当前不再执行）
 
 ESP32-C5 / ESP-IDF 5.5.5。当前源码候选保留同一条 CSI callback 原子记录路线；HANDSHAKE_DIAG 现场结果显示它只接受 clear EAPOL，而最近 25,925 条目标 pair CSI 全部是 Protected，因此按旧模式条件在 CSI_DATA 入队前返回。该结果没有证明空口不存在 EAPOL。
 
@@ -11,7 +30,7 @@ ESP32-C5 / ESP-IDF 5.5.5。当前源码候选保留同一条 CSI callback 原子
 
 两条路径不做跨 callback frame join。为完成 packet_id↔CSI，EAPOL 不要求来自 CSI callback：promiscuous 可提供 WPA2 解密所需握手，CSI_DATA 则必须把 Protected 业务帧和有效 CSI 放在同一记录内。历史 M3 确实来自 promiscuous FRAME；完整 M1–M4、解密和业务 packet_id 尚未验证。
 
-## 本轮离线验证状态
+## 历史 DUAL_DIAG 离线验证状态
 
 - `HANDSHAKE_DUAL_DIAG`、双向 pair 过滤、受限 EAPOL RAW、Protected CSI_DATA 原子入队及时间桶代码已加入本分支。
 - 每200ms目标 pair 的聚合时间桶记录 promisc/CSI方向、clear/Protected、EAPOL、入队/导出与 drop计数；实际 start/end/span 随记录导出。另有累积 DUAL_STATS 和 STOP 时最后一个部分桶。
@@ -19,7 +38,7 @@ ESP32-C5 / ESP-IDF 5.5.5。当前源码候选保留同一条 CSI callback 原子
 - 本地 ESP-IDF 5.5.5 / Python 3.11.2 build 成功。2026-10-27 app-only 烧录候选固件并通过 esptool 写入校验；PROBE sanity 目标有效 CSI=43、CSI_DATA=1。之后一次限时 DUAL_DIAG 手动断开/恢复捕获到641条目标pair CSI、80条有效CSI_DATA和1条FRAME M1，M2/M3/M4未识别；所有drop、截断、串口错误为0。
 - 离线回归共62项通过，包含过滤条件、双方向、QoS/非QoS、受保护业务帧、EAPOL M1–M4分类、错误/截断处理、时间桶和完整 host analyzer 合成流测试。Python工具语法检查通过。以上都不是实机握手或解密证明。
 
-## 未来现场流程（另行安排）
+## 旧版 DUAL_DIAG 现场流程（历史步骤；当前不执行）
 
 2026-10-27这轮唯一一次手动断开/恢复已完成；下面步骤仅供后续单独安排的采集使用。先在本地安全环境把 `$TargetMac` / `$ApMac` 设为现场确认值，不要写进公开日志；以下仅为流程示意。
 
@@ -40,7 +59,7 @@ python tools/capture_csi_diag.py --port COM10 --channel 2 --target $TargetMac --
 
 本次烧录与 PROBE sanity 见[固件sanity结果](../结果/real_poc_dual_diag_flash_sanity_20261027.md)；DUAL_DIAG单次人工断开/恢复结果见[实机报告](../结果/real_poc_dual_diag_manual_reconnect_20261027.md)。
 
-## 进入20个UDP与WPA2解密阶段的门槛
+## 历史路线：WPA2解密阶段门槛（已被 Open AP PoC 路线替代）
 
 需要先有可用于 tshark 的真实、连贯 M1–M4，并确认其目标方向和 Key 信息；这只是握手分类，仍需由本机既有解密 profile 完成私有解密检查。之后再发送20个48B CSID UDP，保留 sender/receiver CRC日志；对同轮 CSI_DATA 做解密和关联。至少一个 packet_id 与发送、接收记录一致，且其对应同一 CSI_DATA 含有效 CSI，才算最小 PoC 成功。不假设一个 UDP 必定对应一个 Wi-Fi frame 或一个 CSI。
 

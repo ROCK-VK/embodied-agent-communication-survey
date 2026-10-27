@@ -3,8 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <stddef.h>
 #include <limits.h>
+#include <errno.h>
 #include <stdatomic.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -13,15 +15,19 @@
 #include "esp_rom_crc.h"
 #include "esp_rom_sys.h"
 #include "esp_wifi.h"
+#include "esp_wifi_default.h"
 #include "esp_mac.h"
 #include "esp_event.h"
 #include "esp_netif.h"
+#include "esp_netif_ip_addr.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
 #include "driver/uart.h"
 #include "esp_vfs_dev.h"
+#include "lwip/sockets.h"
+#include "lwip/inet.h"
 
 #define CAP 2048
 #define CSI_CAP 2048
@@ -42,17 +48,34 @@ static event_t *pool;
 static QueueHandle_t free_slots, events;
 static uint8_t target[6], ap[6];
 static unsigned channel, serial_id;
-enum { MODE_STOP=0, MODE_HANDSHAKE=1, MODE_PROBE=2, MODE_HANDSHAKE_DIAG=3, MODE_HANDSHAKE_DUAL_DIAG=4 };
+enum { MODE_STOP=0, MODE_HANDSHAKE=1, MODE_PROBE=2, MODE_HANDSHAKE_DIAG=3, MODE_HANDSHAKE_DUAL_DIAG=4, MODE_OPEN_AP_POC=5 };
 static atomic_bool synthetic_active;
 static atomic_uint capture_mode, mode_epoch;
 static atomic_uint target_csi_seen,candidate_seen,large_frame_filtered,filter_other,handshake_data_count;
 static atomic_uint synthetic_candidates,synthetic_large,synthetic_eapol;
 static SemaphoreHandle_t tx_mutex;
-static bool configured,synthetic_only,rf_capture_enabled;
+static bool configured,synthetic_only,rf_capture_enabled,open_ap_configured,promisc_capture_enabled;
+static esp_netif_t *open_ap_netif;
+static char open_ap_ssid[33]="CSI-C5-OPEN-POC";
+static char open_ap_ip[16]="";
+static unsigned open_ap_bandwidth_mhz;
+static atomic_bool open_ap_station_connected,udp_server_ready,udp_server_active;
+static atomic_uint udp_server_error;
+static atomic_uint open_pair_csi,open_uplink_csi,open_downlink_csi;
+static atomic_uint open_data_frame,open_qos_data,open_non_qos_data;
+static atomic_uint open_clear_data,open_protected_data,open_csi_data_enqueued,open_csi_data_output;
+static atomic_uint open_csid_magic_seen,open_csid_packet_id_parsed;
+static atomic_uint udp_rx_total,udp_valid,udp_crc_ok,udp_crc_fail,udp_invalid,udp_duplicate,udp_unique;
+#define UDP_PROBE_PORT 39001
+#define UDP_PROBE_PACKET_LEN 48
+#define UDP_PROBE_SEEN_CAP 64
+static struct { uint32_t run_id, packet_id; } udp_seen[UDP_PROBE_SEEN_CAP];
+static unsigned udp_seen_count;
 static unsigned synth_rate,synth_seconds;
 static const char *control_event="CONFIGURED";
+#define U(x) ((unsigned)atomic_load(&(x)))
 #define CANDIDATE_MAX 256
-static const char *mode_name(void){unsigned m=atomic_load(&capture_mode);return m==MODE_HANDSHAKE?"HANDSHAKE_ONLY":m==MODE_PROBE?"PROBE_CAPTURE":m==MODE_HANDSHAKE_DIAG?"HANDSHAKE_DIAG":m==MODE_HANDSHAKE_DUAL_DIAG?"HANDSHAKE_DUAL_DIAG":"STOP";}
+static const char *mode_name(void){unsigned m=atomic_load(&capture_mode);return m==MODE_HANDSHAKE?"HANDSHAKE_ONLY":m==MODE_PROBE?"PROBE_CAPTURE":m==MODE_HANDSHAKE_DIAG?"HANDSHAKE_DIAG":m==MODE_HANDSHAKE_DUAL_DIAG?"HANDSHAKE_DUAL_DIAG":m==MODE_OPEN_AP_POC?"OPEN_AP_POC":"STOP";}
 
 static atomic_uint prom_total, pair_frames, eapol_frames, csi_total, target_csi;
 static atomic_uint prom_data_all, prom_mgmt_all, prom_ctrl_all, prom_misc_all;
@@ -113,6 +136,9 @@ static uint16_t le16(const uint8_t *p) { return p[0] | (p[1]<<8); }
 static void put16(uint8_t *p, unsigned v) { p[0]=v; p[1]=v>>8; }
 static void put32(uint8_t *p, uint32_t v) { for(unsigned i=0;i<4;i++) p[i]=v>>(8*i); }
 static void put64(uint8_t *p, uint64_t v) { for(unsigned i=0;i<8;i++) p[i]=v>>(8*i); }
+static uint32_t get32(const uint8_t *p) { return (uint32_t)p[0]|((uint32_t)p[1]<<8)|((uint32_t)p[2]<<16)|((uint32_t)p[3]<<24); }
+static uint64_t get64(const uint8_t *p) { return (uint64_t)get32(p)|((uint64_t)get32(p+4)<<32); }
+static uint32_t crc32(const uint8_t*p,unsigned n){return esp_rom_crc32_le(0,p,n);}
 static bool same(const uint8_t *a,const uint8_t *b) { return memcmp(a,b,6)==0; }
 static unsigned header_length(const uint8_t *p, unsigned n) {
     if(n<24) return 0;
@@ -147,6 +173,46 @@ static bool has_llc_snap_candidate(const uint8_t *p,unsigned n,unsigned h) {
 static bool has_ethertype_888e_candidate(const uint8_t *p,unsigned n,unsigned h) {
     static const uint8_t ethertype[]={0x88,0x8e};
     return has_llc_snap_candidate(p,n,h) && n>=h+8 && memcmp(p+h+6,ethertype,2)==0;
+}
+static void emit(event_t *e);
+static void scan_open_csid(const uint8_t *frame,unsigned n) {
+    for(unsigned i=0;i+UDP_PROBE_PACKET_LEN<=n;i++){
+        const uint8_t *p=frame+i;
+        if(memcmp(p,"CSID",4)!=0)continue;
+        atomic_fetch_add(&open_csid_magic_seen,1);
+        if(p[4]!=1||p[5]!=28||le16(p+6)!=0||le16(p+24)!=16||le16(p+26)!=0)continue;
+        if(get32(p+44)!=crc32(p,44))continue;
+        uint32_t packet_id=get32(p+12);bool pattern=true;
+        for(unsigned j=0;j<16;j++)if(p[28+j]!=(uint8_t)(packet_id+j)){pattern=false;break;}
+        if(pattern)atomic_fetch_add(&open_csid_packet_id_parsed,1);
+        return;
+    }
+}
+static void open_ap_stats_control(const char *event_name) {
+    xSemaphoreTakeRecursive(tx_mutex,portMAX_DELAY);
+    static event_t e;memset(e.header,0,HDR);
+    memcpy(e.header,"CS8R",4);e.header[4]=1;e.header[5]=7;put16(e.header+6,HDR);
+    int n=snprintf((char*)e.data,CAP,
+      "{\"event\":\"%s\",\"mode\":\"%s\",\"ssid\":\"%s\",\"ap_ip\":\"%s\",\"actual_channel\":%u,\"bandwidth_mhz\":%u,\"channel_readback_ok\":%s,\"station_connected\":%s,\"udp_server_ready\":%s,\"udp_server_error\":%u,"
+      "\"open_pair_csi\":%u,\"open_uplink_csi\":%u,\"open_downlink_csi\":%u,\"open_data_frame\":%u,\"open_qos_data\":%u,\"open_non_qos_data\":%u,\"open_clear_data\":%u,\"open_protected_data\":%u,\"open_csi_data_enqueued\":%u,\"open_csi_data_output\":%u,\"open_csid_magic_seen\":%u,\"open_csid_packet_id_parsed\":%u,"
+      "\"udp_rx_total\":%u,\"udp_valid\":%u,\"udp_crc_ok\":%u,\"udp_crc_fail\":%u,\"udp_invalid\":%u,\"udp_duplicate\":%u,\"udp_unique\":%u,\"queue_drop\":%u,\"raw_drop\":%u,\"csi_drop\":%u,\"write_errors\":%u,\"raw_truncated\":%u,\"csi_truncated\":%u,\"payload_truncated\":%u,\"free_heap\":%u,\"min_free_heap\":%u}",
+      event_name,mode_name(),open_ap_ssid,open_ap_ip,(unsigned)actual_chan,open_ap_bandwidth_mhz,channel_readback_ok?"true":"false",
+      atomic_load(&open_ap_station_connected)?"true":"false",atomic_load(&udp_server_ready)?"true":"false",U(udp_server_error),
+      U(open_pair_csi),U(open_uplink_csi),U(open_downlink_csi),U(open_data_frame),U(open_qos_data),U(open_non_qos_data),U(open_clear_data),U(open_protected_data),U(open_csi_data_enqueued),U(open_csi_data_output),U(open_csid_magic_seen),U(open_csid_packet_id_parsed),
+      U(udp_rx_total),U(udp_valid),U(udp_crc_ok),U(udp_crc_fail),U(udp_invalid),U(udp_duplicate),U(udp_unique),U(raw_drop)+U(csi_drop),U(raw_drop),U(csi_drop),U(write_errors),U(raw_truncated),U(csi_truncated),U(payload_truncated),(unsigned)esp_get_free_heap_size(),(unsigned)esp_get_minimum_free_heap_size());
+    configASSERT(n>0&&n<CAP);put16(e.header+34,n);put16(e.header+36,n);put64(e.header+16,esp_timer_get_time());emit(&e);
+    xSemaphoreGiveRecursive(tx_mutex);
+}
+static void open_ap_udp_rx_control(uint32_t run_id,uint32_t packet_id,uint64_t sender_ns,
+                                   uint64_t rx_us,bool valid,bool crc_ok,bool duplicate,unsigned length) {
+    xSemaphoreTakeRecursive(tx_mutex,portMAX_DELAY);
+    static event_t e;memset(e.header,0,HDR);
+    memcpy(e.header,"CS8R",4);e.header[4]=1;e.header[5]=7;put16(e.header+6,HDR);
+    int n=snprintf((char*)e.data,CAP,
+      "{\"event\":\"UDP_RX\",\"run_id\":%" PRIu32 ",\"packet_id\":%" PRIu32 ",\"sender_mono_ns\":%llu,\"esp_rx_us\":%llu,\"valid\":%s,\"crc_ok\":%s,\"duplicate\":%s,\"datagram_len\":%u}",
+      run_id,packet_id,(unsigned long long)sender_ns,(unsigned long long)rx_us,valid?"true":"false",crc_ok?"true":"false",duplicate?"true":"false",length);
+    configASSERT(n>0&&n<CAP);put16(e.header+34,n);put16(e.header+36,n);put64(e.header+16,rx_us);emit(&e);
+    xSemaphoreGiveRecursive(tx_mutex);
 }
 static event_t *take(void) {
     event_t *e=NULL; if(xQueueReceive(free_slots,&e,0)!=pdTRUE) return NULL;
@@ -272,8 +338,20 @@ static void csi_diag_cb(wifi_csi_info_t *p,bool eapol_only) {
 
     uint16_t fc=le16(hdr);bool up=false,down=false;exact_infrastructure_pair(hdr,&up,&down);
     if(!up&&!down)return; // Exact Jetson↔AP pair only; no third-party frames are exported.
+    bool open_mode=atomic_load(&capture_mode)==MODE_OPEN_AP_POC;
     atomic_fetch_add(&diag_pair_seen,1);
     if(up)atomic_fetch_add(&diag_uplink,1);else atomic_fetch_add(&diag_downlink,1);
+    if(open_mode){
+        atomic_fetch_add(&open_pair_csi,1);
+        if(up)atomic_fetch_add(&open_uplink_csi,1);else atomic_fetch_add(&open_downlink_csi,1);
+        if((fc&0x000c)==0x0008){
+            atomic_fetch_add(&open_data_frame,1);
+            if((fc&0x0080)!=0)atomic_fetch_add(&open_qos_data,1);
+            else atomic_fetch_add(&open_non_qos_data,1);
+            if(fc&0x4000)atomic_fetch_add(&open_protected_data,1);
+            else atomic_fetch_add(&open_clear_data,1);
+        }
+    }
     if(!eapol_only){DUAL_ADD(csi_pair);if(up)DUAL_ADD(csi_up);else DUAL_ADD(csi_down);}
 
     if(meta.rx_channel_estimate_info_vld)atomic_fetch_add(&csi_valid_channel_estimate,1);
@@ -324,6 +402,15 @@ static void csi_diag_cb(wifi_csi_info_t *p,bool eapol_only) {
     if(overlap&&memcmp(hdr+(unsigned)delta,p->payload,overlap)!=0){
         atomic_fetch_add(&diag_reject_layout,1);if(!eapol_only)DUAL_ADD(csi_layout_reject);return;
     }
+    if(open_mode){
+        uint8_t frame[36+CANDIDATE_MAX];unsigned frame_len=(unsigned)delta+p->payload_len;
+        if(frame_len<=sizeof(frame)){
+            memcpy(frame,hdr,hl);
+            unsigned tail=p->payload_len-overlap;
+            if(tail)memcpy(frame+hl,p->payload+overlap,tail);
+            scan_open_csid(frame,frame_len);
+        }
+    }
     const uint8_t *llc=p->payload+overlap;bool llc_snap=false,ethertype=false;
     if(!protected_frame&&!(fc&0x0400)&&!(le16(hdr+22)&15)&&!((fc&0x0080)&&(hdr[qosoff]&0x80))){
         static const uint8_t snap[]={0xaa,0xaa,3,0,0,0};
@@ -359,6 +446,7 @@ static void csi_diag_cb(wifi_csi_info_t *p,bool eapol_only) {
     memcpy(e->header+52,p->mac,6);put16(e->header+58,p->rx_seq);
     e->header[60]=meta.rx_channel_estimate_info_vld;e->header[61]=p->first_word_invalid;
     enqueue(e);atomic_fetch_add(&diag_candidate_enqueued,1);
+    if(open_mode)atomic_fetch_add(&open_csi_data_enqueued,1);
     if(!eapol_only)DUAL_ADD(csi_data_enqueued);
 }
 static void csi_cb(void *ctx,wifi_csi_info_t *p) {
@@ -379,6 +467,7 @@ static void csi_cb(void *ctx,wifi_csi_info_t *p) {
     else atomic_fetch_add(&rx_other, 1);
 
     unsigned mode=atomic_load(&capture_mode);
+    if(mode==MODE_OPEN_AP_POC){csi_diag_cb(p,false);return;}
     if(!same(p->mac,target)){
         atomic_fetch_add(&csi_source_other, 1);
     } else {
@@ -446,7 +535,6 @@ static void csi_cb(void *ctx,wifi_csi_info_t *p) {
     e->header[60]=meta.rx_channel_estimate_info_vld;e->header[61]=p->first_word_invalid;
     enqueue(e);
 }
-static uint32_t crc32(const uint8_t*p,unsigned n){return esp_rom_crc32_le(0,p,n);}
 static void emit(event_t *e) {
     xSemaphoreTakeRecursive(tx_mutex,portMAX_DELAY);
     static uint8_t wire[HDR+CAP+4];unsigned n=le16(e->header+36);
@@ -457,11 +545,9 @@ static void emit(event_t *e) {
     if(wrote>0)atomic_fetch_add(&wire_bytes,wrote);
     if(wrote!=(int)total){atomic_fetch_add(&write_errors,1);DUAL_ADD(write_errors);}
     else if(e->header[5]==RAW){atomic_fetch_add(&raw_output,1);DUAL_ADD(prom_raw_output);}
-    else if(e->header[5]==CSI){atomic_fetch_add(&csi_output,1);DUAL_ADD(csi_data_output);}
+    else if(e->header[5]==CSI){atomic_fetch_add(&csi_output,1);DUAL_ADD(csi_data_output);if(open_ap_configured)atomic_fetch_add(&open_csi_data_output,1);}
     xSemaphoreGiveRecursive(tx_mutex);
 }
-#define U(x) ((unsigned)atomic_load(&(x)))
-
 #define DUAL_JSON_KEY(name) "\"" #name "\":%u,"
 #define DUAL_JSON_LOAD(name) (unsigned)atomic_load(&metrics->name),
 #define DUAL_JSON_TAKE(name) (unsigned)atomic_exchange(&metrics->name,0),
@@ -543,7 +629,7 @@ static void output_task(void *arg){
  for(;;){event_t*e=NULL;if(xQueueReceive(events,&e,pdMS_TO_TICKS(10))==pdTRUE){emit(e);configASSERT(xQueueSend(free_slots,&e,0)==pdTRUE);}
   uint64_t now=esp_timer_get_time();unsigned mode=atomic_load(&capture_mode);
   if(mode==MODE_HANDSHAKE_DUAL_DIAG)timeline_flush(now,false);
-  if(mode!=MODE_STOP&&now-(uint64_t)last>=1000000){control(STATS);if(mode==MODE_HANDSHAKE_DUAL_DIAG)dual_stats(now);last=(int64_t)now;}
+  if(mode!=MODE_STOP&&now-(uint64_t)last>=1000000){control(STATS);if(mode==MODE_HANDSHAKE_DUAL_DIAG)dual_stats(now);if(mode==MODE_OPEN_AP_POC)open_ap_stats_control("OPEN_AP_STATS");last=(int64_t)now;}
  }
 }
 static void drain(void){

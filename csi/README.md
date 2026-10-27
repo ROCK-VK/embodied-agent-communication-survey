@@ -1,43 +1,37 @@
 # CSI 调研与实机验证
 
-更新：2026-10-27。项目目标是打通 packet_id ↔ Wi-Fi Data ↔ CSI，后续再关联相机、LiDAR 与位姿。
+更新：2026-10-27。本阶段目标是用 ESP32-C5 Open SoftAP 建立一条可控的明文 UDP → CSI_DATA 最小 PoC；本轮不再追踪 WPA2 handshake，也不再要求捕获 M1–M4。
 
-## 当前结论
+## 当前状态
 
-- **实机已确认：**ESP32-C5 在 2.4 GHz/channel 2 可取得目标 CSI；历史被动 sanity 曾有 1,293 条有效 CSI、1,286 条同回调 CSI_DATA，drop/串口/截断错误为0。
-- **实机已确认：**2026-10-26 HANDSHAKE_DIAG 将目标 pair CSI 判为 Protected，旧模式仅导出 clear EAPOL，故没有 CSI_DATA；这不证明空口没有 EAPOL。
-- **实机已确认：**历史 M3 来自 promiscuous FRAME 并被 tshark 识别；它不是 CSI_DATA，也没有证明完整 M1–M4 或解密。
-- **实机已完成：**2026-10-27 app-only 烧录 DUAL_DIAG 候选并通过 esptool 写入校验；PROBE sanity 目标有效 CSI=43、CSI_DATA=1、drop/transport/truncation=0。
-- **实机已确认：**一次手动 Wi-Fi 断开/恢复的 DUAL_DIAG 捕获输出 641 条目标 pair CSI、80 条有效 CSI_DATA及1条 promisc EAPOL M1 FRAME；M2/M3/M4未识别。drop、截断和串口错误为0。
-- **尚未验证：**完整 M1–M4、WPA2/CCMP 解密、恢复 packet_id 和 packet_id ↔ 同记录CSI。
+- **已离线实现：**新增独立 `OPEN_AP_POC` 模式，不覆盖原有 `PROBE`、`HANDSHAKE_DIAG`、`HANDSHAKE_DUAL_DIAG`。
+- **已离线实现：**ESP32-C5 在 2.4 GHz/channel 2、HT20、无密码 SoftAP 下监听 UDP/39001；复用 48-byte CSID 协议并校验 CRC。CSI callback 为同一条 `CSI_DATA` 原子记录保存目标帧信息与 CSI。
+- **已离线实现：**Jetson sender、UART capture、CSI_DATA 解码和精确 `(run_id, packet_id)` 分析工具；只有 sender log、ESP UDP CRC 事件及同条有效 CSI_DATA 三者吻合才算 PoC 成功。
+- **离线测试：**完整 Python 回归运行77项，76项通过、1项跳过；新增 Open AP 专项9项全部通过，覆盖 QoS/非QoS、DS方向、CRC、重复ID、错误/截断记录和同记录CSI有效性。4个新增 Python 工具 `py_compile` 通过。
+- **ESP-IDF build：**IDF 5.5.5 / Python 3.11.2 构建成功。App 963,984 bytes，SHA-256 `312238DB6B43134EF8AE2CAAE77723C07D114CC0C29AA5316CFDBCA26F3A34FA`；source partition layout 未修改。
+- **尚未实机验证：**固件未烧录；SoftAP运行、Jetson关联、ESP UDP接收和真实 CSI_DATA→packet_id 解析均待实验室验证。当前实际烧录版本未确认与工作区源码一致。
+- **Jetson：**本轮没有 SSH、修改网络或发送 UDP。用户必须在开始 Jetson 切换前明确确认；不会自动重连或重试。
 
-## 当前技术路线
+## 当前实验顺序
 
-Path A：promiscuous → 仅目标 pair clear EAPOL → FRAME / 本地握手 PCAP
-Path B：CSI callback → 目标 pair frame bytes + CSI → 同一 CSI_DATA
-Path A握手材料 + Path B业务帧 → 本地WPA2解密 → packet_id ↔ 同记录CSI
+1. 实验室接入 ESP 后先确认固件，再决定是否 app-only 烧录；完成 ESP 自身 SoftAP/channel/BW/UDP/CSI sanity。
+2. 在用户明确确认后，由用户手动将 Jetson 的 USB Wi-Fi 切到 ESP Open AP；eth0/ROS/Go2/MID360 不动。
+3. Jetson 发送 20 个、每个 UDP payload 48 bytes 的 CSID probe，默认间隔 150 ms；ESP capture 工具不操作 Jetson，也不发送 UDP。
+4. 停止 ESP 后离线生成 `packet_id_to_csi.csv` 和 summary。至少一个相同 `(run_id, packet_id)` 同时出现在 sender log、ESP CRC-valid UDP_RX 和一条 CSI-valid CSI_DATA 中，才可标记最小 PoC PASS。
+5. 首轮失败即停止并保留证据；不自动重连、不扩大成高负载或相机/LiDAR流量。
 
-握手材料不要求必须来自 CSI callback。Promiscuous 和 CSI callback 不做跨回调逐包 join；最终业务关联必须在同一条 CSI_DATA 内保留 frame 与 CSI。
+## 关键文件
 
-## 下一步
+- [固件与现场流程](ESP32测试/sniffer_8d_a_full_filter/README.md)
+- [Open AP capture/analyzer](ESP32测试/sniffer_8d_a_full_filter/tools/capture_open_ap_poc.py)
+- [Jetson UDP sender](ESP32测试/sniffer_8d_a_full_filter/tools/send_open_ap_probe.py)
+- [Open AP 离线分析](ESP32测试/sniffer_8d_a_full_filter/tools/open_ap_poc.py)
+- [Open AP 离线实现与构建报告](ESP32测试/结果/open_ap_poc_offline_20261027.md)
+- 项目状态与执行历史保存在本地 `日志/`，不公开同步。
 
-1. 不重复本轮 Jetson 断开/恢复；不远程 reassociate。
-2. 先离线审查本轮只得到一条 M1 的证据和捕获窗口；不要把缺失消息归因到某个 filter，除非有逐帧证据。
-3. 当前无完整握手，因此不发 UDP、不做 WPA2 解密。后续实机采集需另行安排且只执行一个人工断开/恢复周期。
-4. 获取可验证的完整 M1–M4 后，才进入受控 CSID UDP 与本机解密；至少一个 packet_id 被正确恢复，且对应同一有效 CSI_DATA，才算最小 PoC 通过。
+## 安全边界
 
-## 入口
-
-- 项目状态与执行历史保存在本地 `日志/`，不进入公开镜像。
-- [DUAL_DIAG 离线实现与构建审计](ESP32测试/结果/real_poc_dual_diag_offline_20261026.md)
-- [DUAL_DIAG 候选烧录与 PROBE sanity](ESP32测试/结果/real_poc_dual_diag_flash_sanity_20261027.md)
-- [DUAL_DIAG 手动断开/恢复实机结果](ESP32测试/结果/real_poc_dual_diag_manual_reconnect_20261027.md)
-- [固件与现场步骤](ESP32测试/sniffer_8d_a_full_filter/README.md)
-- [HANDSHAKE_DIAG 实机结果](ESP32测试/结果/real_poc_csi_centric_handshake_diag_20261026.md)
-- [CSI callback 路径审计](ESP32测试/结果/real_poc_8da_csi_callback_path_audit_20261026.md)
-
-## 边界
-
-- Jetson 的断开/恢复由用户在本机手动完成；Codex 未改 Wi-Fi配置、路由、驱动或服务。
-- 不改 Jetson 的 wlan0/eth0、ROS/DDS、服务或机器人网络；不把“一条 UDP = 一条 Wi-Fi frame = 一条 CSI”当作前提。
-- 公开仓库只同步自有源码、测试和脱敏说明；原始 stream、Protected payload、PCAP、真实地址和密钥留在本机。
+- 不改 Jetson `eth0`、路由、DNS、ROS/DDS、服务或 Go2/MID360 网络；切换 Jetson Wi-Fi 前必须先通知用户并等待确认。
+- `1 UDP packet ≠ 1 Wi-Fi frame ≠ 1 CSI`；只接受同一 CSI_DATA 中直接恢复的 `packet_id` 与有效 CSI。
+- 不公开真实 SSID/PSK、MAC、现场 IP、sender/receiver私有日志、raw CSI/frame、PCAP、凭据或 Flash 镜像。
+- ESP32-C5 保留为轻量 PoC 平台；正式高性能主线后续为 x86-64 Ubuntu 22.04 + PCIe/M.2 AX210 + PicoScenes。Pi4B/Nexmon 是可选对照，Atheros 仅历史参考。
