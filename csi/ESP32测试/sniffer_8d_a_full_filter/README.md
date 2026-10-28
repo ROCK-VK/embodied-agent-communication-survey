@@ -1,20 +1,21 @@
 # sniffer-8d CSI-centric：当前 OPEN_AP_POC / 历史 DUAL_DIAG
 
-更新：2026-10-28。当前唯一推进的实机目标是 Open SoftAP 明文 UDP → 同记录 CSI_DATA；不再开展 WPA2 handshake/M1–M4 捕获。
+更新：2026-10-28。当前唯一推进的实机目标是 Open SoftAP 明文 UDP → 同记录 CSI_DATA；WPA2 handshake/M1–M4不再是前置任务。
 
-## 当前：OPEN_AP_POC（首轮 app-only 烧录成功，ESP-only sanity 未通过）
+## 当前：OPEN_AP_POC（初始化顺序修复已build，尚未烧录）
 
-- 独立模式 `OPEN_AP_POC`；原 `PROBE`、`HANDSHAKE_DIAG`、`HANDSHAKE_DUAL_DIAG` 保留。
-- 运行时命令 `CFG_OPEN_AP,2,<SSID>` 配置 2.4 GHz、channel 2、HT20、`WIFI_AUTH_OPEN` SoftAP；SSID 默认 `CSI-C5-OPEN-POC`，不保存到 NVS。ESP UDP receiver 监听端口 39001。
-- 关联 station 后根据 AP 事件确定目标 MAC；CSI callback 只导出 AP 与已关联 station 的有效 CSI 原子记录，保留 header/payload/CSI，并统计方向、Data/QoS、Protected/clear、CSID与队列/传输健康。
-- 复用 `udp_probe_protocol.py` 里的 48-byte CSID payload。ESP socket CRC-valid UDP_RX 是接收侧 ground truth；host 只有从同一条有效 CSI_DATA 恢复到相同 `run_id/packet_id` 才给出 PoC PASS，不用时间或序号猜测。
-- Jetson发送：`python tools/send_open_ap_probe.py --destination <ESP_AP_IP> --run-id <整数> --output <私有目录>/sender.jsonl`。默认20包、150ms间隔，可用 `--count` 降至1–20；每次运行使用新日志路径。
-- ESP UART采集：`python tools/capture_open_ap_poc.py --port COM10 --stop-file <私有目录>/STOP --output <新的私有目录>`。工具将自动配置SoftAP并ARM，最多300秒；它不会改Jetson网络，也不会发业务UDP。只在用户现场确认后才手动切换Jetson。
-- 离线验证：完整 Python unittest运行77项，76项通过、1项跳过；Open AP专项9项全部通过；4个新增Python工具 `py_compile`通过。IDF 5.5.5/Python 3.11.2 build成功，app 963,984 bytes，SHA-256 `312238DB6B43134EF8AE2CAAE77723C07D114CC0C29AA5316CFDBCA26F3A34FA`。
-- 首轮现场：app-only写入`0x10000`并经esptool校验。收到 `CFG_OPEN_AP` 后出现 `ESP_ERR_WIFI_NOT_STARTED (0x3002)`；没有获得 `OPEN_AP_READY`、channel/BW读回或UDP server ready。错误输出缺少源码行号，具体API尚未确认。详情见[首轮 ESP-only sanity结果](../结果/open_ap_poc_esp_sanity_20261028.md)。本轮到此停止，没有Jetson切网、没有发送UDP，也没有CSI_DATA/packet_id结果。
-- 下一步：先离线核对SoftAP初始化中Wi-Fi启动状态要求，修复后重新做build；新的ESP-only sanity需另行安排。只有Sanity通过后才告知用户并等待其明确确认，再由用户手动切Jetson USB Wi-Fi；不自动重试。Jetson `eth0`、ROS/DDS、Go2/MID360 不操作。
+- 独立模式 OPEN_AP_POC；原 PROBE、HANDSHAKE_DIAG、HANDSHAKE_DUAL_DIAG 保留。
+- 运行时命令 CFG_OPEN_AP,2,<SSID> 配置2.4 GHz、channel 2、HT20、WIFI_AUTH_OPEN SoftAP；UDP receiver监听39001。
+- IDF 5.5.5核验：esp_wifi_set_band_mode()在esp_wifi_start()前返回ESP_ERR_WIFI_NOT_STARTED；旧实现顺序正好违反此前置条件。esp_wifi_set_bandwidth()也后移；CSI config前先启用promiscuous，以满足CSI API的started/promiscuous条件。
+- 新路径按API输出CS8R CONTROL事件，含API名、错误数值及esp_err_to_name()；失败不会panic或继续启动。Host capture会直接显示失败API。OPEN_AP_READY只在mode/channel/BW读回、CSI callback、UDP socket bind和UART输出task全部通过后发出。
+- MODE OPEN_AP_POC仅在esp_wifi_set_csi(true)成功后启动CSI/UDP业务接收并回MODE_ACK；失败则保持STOP且不启用UDP业务处理。
+- 复用udp_probe_protocol.py中的48-byte CSID payload。只有同一CSI_DATA恢复到与sender/CRC-valid UDP_RX相同run_id/packet_id且CSI有效才算PoC PASS。
+- 离线回归：完整Python unittest 84项运行、83通过、1跳过；新增加的7项初始化守卫通过；tools compileall通过。
+- IDF 5.5.5/Python 3.11.2 build成功。新候选app为966,736 bytes，SHA-256 351D50A90748D199ACF198EC52C5CCBE61401B64A05796107D4A9892A121C986；1MiB app分区剩81,840 bytes。分区布局未改。
+- 首轮旧app实机曾在CFG_OPEN_AP后报0x3002；串口只保留通用错误码。具体API由原源码调用顺序和IDF 5.5.5返回条件确认，尚未在新app运行时复核。详情见[初始化顺序修复报告](../结果/open_ap_init_order_fix_20261028.md)和[首轮失败报告](../结果/open_ap_poc_esp_sanity_20261028.md)。
+- 新候选尚未烧录；本轮未读COM10、未访问或修改Jetson网络、未发UDP。下一阶段应先做ESP-only sanity；通过后再另行安排用户手动切Jetson Wi-Fi。
 
-构建与边界见[Open AP离线实现与构建报告](../结果/open_ap_poc_offline_20261027.md)。
+构建和PoC边界见[Open AP离线实现报告](../结果/open_ap_poc_offline_20261027.md)。
 
 ---
 

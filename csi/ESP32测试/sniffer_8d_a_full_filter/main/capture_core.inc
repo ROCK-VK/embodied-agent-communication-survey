@@ -59,7 +59,7 @@ static esp_netif_t *open_ap_netif;
 static char open_ap_ssid[33]="CSI-C5-OPEN-POC";
 static char open_ap_ip[16]="";
 static unsigned open_ap_bandwidth_mhz;
-static atomic_bool open_ap_station_connected,udp_server_ready,udp_server_active;
+static atomic_bool open_ap_station_connected,udp_server_ready,udp_server_active,udp_server_stop,udp_server_task_running;
 static atomic_uint udp_server_error;
 static atomic_uint open_pair_csi,open_uplink_csi,open_downlink_csi;
 static atomic_uint open_data_frame,open_qos_data,open_non_qos_data;
@@ -73,6 +73,7 @@ static struct { uint32_t run_id, packet_id; } udp_seen[UDP_PROBE_SEEN_CAP];
 static unsigned udp_seen_count;
 static unsigned synth_rate,synth_seconds;
 static const char *control_event="CONFIGURED";
+static bool open_ap_setup_failed;
 #define U(x) ((unsigned)atomic_load(&(x)))
 #define CANDIDATE_MAX 256
 static const char *mode_name(void){unsigned m=atomic_load(&capture_mode);return m==MODE_HANDSHAKE?"HANDSHAKE_ONLY":m==MODE_PROBE?"PROBE_CAPTURE":m==MODE_HANDSHAKE_DIAG?"HANDSHAKE_DIAG":m==MODE_HANDSHAKE_DUAL_DIAG?"HANDSHAKE_DUAL_DIAG":m==MODE_OPEN_AP_POC?"OPEN_AP_POC":"STOP";}

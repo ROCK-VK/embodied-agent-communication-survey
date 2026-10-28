@@ -4,14 +4,15 @@
 
 ## 当前状态
 
-- **已离线实现：**新增独立 `OPEN_AP_POC` 模式，不覆盖原有 `PROBE`、`HANDSHAKE_DIAG`、`HANDSHAKE_DUAL_DIAG`。
-- **已离线实现：**ESP32-C5 在 2.4 GHz/channel 2、HT20、无密码 SoftAP 下监听 UDP/39001；复用 48-byte CSID 协议并校验 CRC。CSI callback 为同一条 `CSI_DATA` 原子记录保存目标帧信息与 CSI。
-- **已离线实现：**Jetson sender、UART capture、CSI_DATA 解码和精确 `(run_id, packet_id)` 分析工具；只有 sender log、ESP UDP CRC 事件及同条有效 CSI_DATA 三者吻合才算 PoC 成功。
-- **离线测试：**完整 Python 回归运行77项，76项通过、1项跳过；新增 Open AP 专项9项全部通过，覆盖 QoS/非QoS、DS方向、CRC、重复ID、错误/截断记录和同记录CSI有效性。4个新增 Python 工具 `py_compile` 通过。
-- **ESP-IDF build：**IDF 5.5.5 / Python 3.11.2 构建成功。App 963,984 bytes，SHA-256 `312238DB6B43134EF8AE2CAAE77723C07D114CC0C29AA5316CFDBCA26F3A34FA`；source partition layout 未修改。
-- **首轮 ESP 实机结果未通过：**Open AP app 已 app-only 写入 `0x10000` 且 esptool校验通过；发送 `CFG_OPEN_AP` 后固件以 `ESP_ERR_WIFI_NOT_STARTED (0x3002)` 报错，未取得 SoftAP/UDP ready。具体失败API尚未从截断的启动输出确认。
-- **Jetson：**本轮没有 SSH、修改网络、切网或发送 UDP。没有进入 Jetson阶段；不会自动重试。
-- **仍未验证：**Jetson关联、ESP UDP接收、CSI_DATA明文packet_id恢复和最小PoC闭环。
+- 已离线实现独立 OPEN_AP_POC，不覆盖原有 PROBE、HANDSHAKE_DIAG、HANDSHAKE_DUAL_DIAG。
+- 方案为 ESP32-C5 2.4 GHz/channel 2/HT20、WIFI_AUTH_OPEN SoftAP；UDP/39001复用48-byte CSID协议与CRC32，CSI callback将目标帧信息与CSI放在同一条CSI_DATA中。
+- Host sender、UART capture、CSI_DATA解析和精确(run_id, packet_id)分析已完成；只接受同一记录直接恢复packet_id且CSI有效。
+- 离线验证：完整 Python unittest 84项运行、83项通过、1项跳过；新增初始化静态守卫7项通过；tools compileall通过。
+- ESP-IDF 5.5.5 / Python 3.11.2构建成功。新候选app 966,736 bytes，SHA-256 351D50A90748D199ACF198EC52C5CCBE61401B64A05796107D4A9892A121C986；1MiB app分区剩余81,840 bytes。
+- 根因：IDF 5.5.5明确 esp_wifi_set_band_mode() 在 esp_wifi_start() 前会返回 ESP_ERR_WIFI_NOT_STARTED；旧Open AP路径正是在start前调用。修复后把band/channel/BW设定移到start后，并在CSI配置前启用promiscuous。旧UART未记录API名，属于源码/API契约确认，尚待新固件实机复核。
+- 初始化现在逐API输出结果；失败不panic、不误报READY。只有channel 2/HT20读回、CSI callback配置、UDP bind及UART output task均ready后才发OPEN_AP_READY。
+- 新候选尚未烧录。本轮没有访问COM10，没有SSH/操作Jetson、切网络或发送UDP；新固件SoftAP/CSI运行状态待下一次ESP-only sanity确认。
+- 最小PoC尚未验证：Jetson关联、UDP socket接收、同一CSI_DATA恢复明文packet_id及有效CSI。
 
 ## 当前实验顺序
 
@@ -28,6 +29,7 @@
 - [Jetson UDP sender](ESP32测试/sniffer_8d_a_full_filter/tools/send_open_ap_probe.py)
 - [Open AP 离线分析](ESP32测试/sniffer_8d_a_full_filter/tools/open_ap_poc.py)
 - [Open AP 首轮 ESP-only sanity 结果](ESP32测试/结果/open_ap_poc_esp_sanity_20261028.md)
+- [Open AP 初始化顺序修复报告](ESP32测试/结果/open_ap_init_order_fix_20261028.md)
 - [Open AP 离线实现与构建报告](ESP32测试/结果/open_ap_poc_offline_20261027.md)
 - 项目状态与执行历史保存在本地 `日志/`，不公开同步。
 

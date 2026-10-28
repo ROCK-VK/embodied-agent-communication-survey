@@ -111,11 +111,19 @@ def main():
                 if counters.get("event") == "OPEN_AP_UDP_ERROR":
                     ready_event = counters
                     break
+                if counters.get("event") == "OPEN_AP_INIT_FAILED":
+                    ready_event = counters
+                    break
             if any(decoder.counts.get(key, 0) for key in TRANSPORT_ERRORS):
                 raise RuntimeError("UART transport/parser error during SoftAP setup")
         if ready_event is None:
             raise RuntimeError("timed out waiting for OPEN_AP_READY")
         if ready_event.get("event") != "OPEN_AP_READY":
+            if ready_event.get("event") == "OPEN_AP_INIT_FAILED":
+                raise RuntimeError("SoftAP initialization failed at {}: {} ({})".format(
+                    ready_event.get("api", "unknown API"),
+                    ready_event.get("err_name", "unknown error"),
+                    ready_event.get("err", "unknown code")))
             raise RuntimeError("ESP UDP server failed to bind: {}".format(ready_event))
         if (ready_event.get("actual_channel") != 2 or
                 ready_event.get("bandwidth_mhz") != 20 or
@@ -132,7 +140,8 @@ def main():
                 if counters.get("event") == "MODE_ACK":
                     mode_ack = counters
                     break
-                if counters.get("event") in ("ERROR", "BUSY", "OPEN_AP_MODE_REQUIRED"):
+                if counters.get("event") in ("ERROR", "BUSY", "OPEN_AP_MODE_REQUIRED",
+                                               "OPEN_AP_INIT_FAILED"):
                     raise RuntimeError("firmware rejected OPEN_AP_POC mode")
         if mode_ack is None or mode_ack.get("mode") != "OPEN_AP_POC" or not mode_ack.get("rf_capture_enabled"):
             raise RuntimeError("OPEN_AP_POC mode was not acknowledged")
