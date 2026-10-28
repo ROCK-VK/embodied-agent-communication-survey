@@ -2,20 +2,16 @@
 
 更新：2026-10-28。当前唯一推进的实机目标是 Open SoftAP 明文 UDP → 同记录 CSI_DATA；WPA2 handshake/M1–M4不再是前置任务。
 
-## 当前：OPEN_AP_POC（初始化顺序修复已build，尚未烧录）
+## 当前：OPEN_AP_POC（已烧录，ESP-only sanity 通过）
 
 - 独立模式 OPEN_AP_POC；原 PROBE、HANDSHAKE_DIAG、HANDSHAKE_DUAL_DIAG 保留。
-- 运行时命令 CFG_OPEN_AP,2,<SSID> 配置2.4 GHz、channel 2、HT20、WIFI_AUTH_OPEN SoftAP；UDP receiver监听39001。
-- IDF 5.5.5核验：esp_wifi_set_band_mode()在esp_wifi_start()前返回ESP_ERR_WIFI_NOT_STARTED；旧实现顺序正好违反此前置条件。esp_wifi_set_bandwidth()也后移；CSI config前先启用promiscuous，以满足CSI API的started/promiscuous条件。
-- 新路径按API输出CS8R CONTROL事件，含API名、错误数值及esp_err_to_name()；失败不会panic或继续启动。Host capture会直接显示失败API。OPEN_AP_READY只在mode/channel/BW读回、CSI callback、UDP socket bind和UART输出task全部通过后发出。
-- MODE OPEN_AP_POC仅在esp_wifi_set_csi(true)成功后启动CSI/UDP业务接收并回MODE_ACK；失败则保持STOP且不启用UDP业务处理。
-- 复用udp_probe_protocol.py中的48-byte CSID payload。只有同一CSI_DATA恢复到与sender/CRC-valid UDP_RX相同run_id/packet_id且CSI有效才算PoC PASS。
-- 离线回归：完整Python unittest 84项运行、83通过、1跳过；新增加的7项初始化守卫通过；tools compileall通过。
-- IDF 5.5.5/Python 3.11.2 build成功。新候选app为966,736 bytes，SHA-256 351D50A90748D199ACF198EC52C5CCBE61401B64A05796107D4A9892A121C986；1MiB app分区剩81,840 bytes。分区布局未改。
-- 首轮旧app实机曾在CFG_OPEN_AP后报0x3002；串口只保留通用错误码。具体API由原源码调用顺序和IDF 5.5.5返回条件确认，尚未在新app运行时复核。详情见[初始化顺序修复报告](../结果/open_ap_init_order_fix_20261028.md)和[首轮失败报告](../结果/open_ap_poc_esp_sanity_20261028.md)。
-- 新候选尚未烧录；本轮未读COM10、未访问或修改Jetson网络、未发UDP。下一阶段应先做ESP-only sanity；通过后再另行安排用户手动切Jetson Wi-Fi。
-
-构建和PoC边界见[Open AP离线实现报告](../结果/open_ap_poc_offline_20261027.md)。
+- 运行时命令 CFG_OPEN_AP,2,<SSID> 配置 2.4 GHz、channel 2、HT20、WIFI_AUTH_OPEN SoftAP；UDP receiver 监听 39001。
+- IDF 5.5.5 初始化修复已烧录：Wi-Fi start 后设置 band/channel/BW；CSI 配置前启用 promiscuous。初始化步骤逐 API 输出错误码和名称，失败不会误报 READY。
+- 运行版本：仅 app 分区 `0x10000`；966,736 bytes；SHA-256 `351D50A90748D199ACF198EC52C5CCBE61401B64A05796107D4A9892A121C986`。Bootloader、partition table 和 NVS 未写入。
+- ESP-only 15 秒 sanity：28 个初始化 API 全部 ESP_OK；OPEN_AP_READY、channel 2 / 20 MHz readback、CSI 模式 ACK、UDP bind ready、STOP/FINAL 均正常；queue/raw/CSI drop、truncation、UART与 host transport errors 均为0。
+- 本轮没有 station/Jetson、没有发 UDP：CSI_DATA=0、UDP RX=0属于无客户端条件下的预期状态。目标业务帧 CSI 与 packet_id 关联尚未测试。
+- 本地完整串口证据保存在私有结果目录；公开只发布匿名汇总报告：[Open AP app flash 与 ESP-only sanity](../结果/open_ap_poc_app_flash_sanity_20261028.md)。
+- 后续只能在用户现场手动切 Jetson USB Wi-Fi 到 ESP Open AP 后测试；本轮没有操作 Jetson。PoC PASS 条件仍是同一条 CSI-valid CSI_DATA 直接恢复到 sender / ESP CRC-valid UDP_RX 相同的 `(run_id, packet_id)`。
 
 ---
 

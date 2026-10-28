@@ -4,15 +4,15 @@
 
 ## 当前状态
 
-- 已离线实现独立 OPEN_AP_POC，不覆盖原有 PROBE、HANDSHAKE_DIAG、HANDSHAKE_DUAL_DIAG。
-- 方案为 ESP32-C5 2.4 GHz/channel 2/HT20、WIFI_AUTH_OPEN SoftAP；UDP/39001复用48-byte CSID协议与CRC32，CSI callback将目标帧信息与CSI放在同一条CSI_DATA中。
-- Host sender、UART capture、CSI_DATA解析和精确(run_id, packet_id)分析已完成；只接受同一记录直接恢复packet_id且CSI有效。
-- 离线验证：完整 Python unittest 84项运行、83项通过、1项跳过；新增初始化静态守卫7项通过；tools compileall通过。
-- ESP-IDF 5.5.5 / Python 3.11.2构建成功。新候选app 966,736 bytes，SHA-256 351D50A90748D199ACF198EC52C5CCBE61401B64A05796107D4A9892A121C986；1MiB app分区剩余81,840 bytes。
-- 根因：IDF 5.5.5明确 esp_wifi_set_band_mode() 在 esp_wifi_start() 前会返回 ESP_ERR_WIFI_NOT_STARTED；旧Open AP路径正是在start前调用。修复后把band/channel/BW设定移到start后，并在CSI配置前启用promiscuous。旧UART未记录API名，属于源码/API契约确认，尚待新固件实机复核。
-- 初始化现在逐API输出结果；失败不panic、不误报READY。只有channel 2/HT20读回、CSI callback配置、UDP bind及UART output task均ready后才发OPEN_AP_READY。
-- 新候选尚未烧录。本轮没有访问COM10，没有SSH/操作Jetson、切网络或发送UDP；新固件SoftAP/CSI运行状态待下一次ESP-only sanity确认。
-- 最小PoC尚未验证：Jetson关联、UDP socket接收、同一CSI_DATA恢复明文packet_id及有效CSI。
+- 当前唯一实机目标是 ESP32-C5 Open SoftAP 明文 UDP → 同记录 CSI_DATA；WPA2 handshake/M1–M4 不再是前置任务。
+- OPEN_AP_POC 固件已 app-only 烧录至 `0x10000`，esptool hash 校验通过；运行 app SHA-256 `351D50A90748D199ACF198EC52C5CCBE61401B64A05796107D4A9892A121C986`，大小 966,736 bytes。bootloader、partition table、NVS 未写入。
+- ESP-only 15 秒 sanity 实机通过：28 个初始化 API 全部 ESP_OK；`OPEN_AP_READY` 收到；channel 2 / 20 MHz 读回通过；CSI capture ACK 与 UDP server bind ready；限时 STOP/FINAL 正常；UART transport/parser errors、queue/raw/CSI drop、截断和写错误均为0。
+- 本轮没有 station、Jetson 或 UDP probe，因此 UDP RX=0、CSI_DATA=0、packet_id恢复=0；这不代表目标业务帧 CSI 已测，也不影响 Open AP 启动 sanity 的通过结论。
+- 离线验证仍为完整 Python unittest 84项运行、83通过、1跳过；新增初始化静态守卫7项通过；compileall通过。IDF 5.5.5/Python 3.11.2 build成功；1 MiB app分区尚余81,840 bytes。
+- 仍待实机验证：Jetson 手动关联 Open AP；UDP sender 与 ESP socket 收包一致性；同一 CSI_DATA 直接恢复 packet_id 且 CSI 有效。PoC PASS 仍要求至少一个一致的 `(run_id, packet_id)` 同时匹配 sender、ESP CRC-valid UDP_RX、同条 CSI-valid CSI_DATA。
+- 网络保护：本轮未 SSH/ping Jetson、未切 Wi-Fi、未发送业务 UDP，未动 eth0、ROS/DDS、Go2/MID360。下一阶段进入 Jetson 手动切网前必须先通知用户并等待确认；仅允许用户现场切换一次，失败后停止。
+- 报告入口：[Open AP app 烧录与 ESP-only sanity](ESP32测试/结果/open_ap_poc_app_flash_sanity_20261028.md)、[初始化顺序修复](ESP32测试/结果/open_ap_init_order_fix_20261028.md)、[首轮启动失败](ESP32测试/结果/open_ap_poc_esp_sanity_20261028.md)、[离线实现与构建](ESP32测试/结果/open_ap_poc_offline_20261027.md)。
+- 公开同步仅通过本地发布脚本的白名单，限制为源码与脱敏报告；真实 SSID/PSK、MAC、现场IP、私有日志、原始CSI/frame、PCAP、凭据、sdkconfig私密内容和Flash镜像不得公开。
 
 ## 当前实验顺序
 

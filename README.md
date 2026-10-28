@@ -4,13 +4,11 @@
 
 ## 当前进度
 
-- OPEN_AP_POC固件和host工具已经离线实现；本轮修复SoftAP初始化次序并通过全量离线测试和ESP-IDF build。
-- 原因确认：IDF 5.5.5规定esp_wifi_set_band_mode()需在esp_wifi_start()后调用；旧Open AP路径在start前调用，符合首轮ESP_ERR_WIFI_NOT_STARTED (0x3002)的确定失败条件。CSI设置另要求启动后的promiscuous模式，修复已加入。
-- 新候选逐API记录初始化结果；失败不会panic，OPEN_AP_READY受channel/HT20、CSI callback、UDP bind和UART task门禁控制。
-- Python unittest运行84项、83项通过、1项跳过；新增7项初始化静态守卫通过，tools compileall通过。IDF 5.5.5 build成功；app 966,736 bytes，SHA-256 351D50A90748D199ACF198EC52C5CCBE61401B64A05796107D4A9892A121C986。
-- 新候选尚未烧录；没有访问COM10或操作Jetson。SoftAP实机启动、Jetson关联、UDP接收和同一CSI_DATA内恢复packet_id仍待验证。
-- 旧UART异常片段只有通用0x3002，没有运行时API行名；目前根因由烧录源码顺序和IDF API contract确认，仍需新固件ESP-only sanity复核。
-- 最小PoC标准不变：同一CSI_DATA内存在packet_id与有效CSI，且packet_id与sender及ESP CRC-valid UDP_RX一致。不能按时间/序号猜配。
+- Open AP 初始化修复固件已 app-only 烧录到 `0x10000`；esptool hash verification通过，bootloader、partition table、NVS未写入。运行 app：966,736 bytes，SHA-256 `351D50A90748D199ACF198EC52C5CCBE61401B64A05796107D4A9892A121C986`。
+- ESP-only 15秒 sanity 实机通过：28个不同初始化 API 全部 ESP_OK；OPEN_AP_READY、channel 2 / 20 MHz读回、CSI capture ACK、UDP server bind ready、STOP/FINAL均正常。queue/raw/CSI drop、截断、UART写错误和host transport/parser errors全为0。
+- 本次没有 station 或业务UDP，所以 UDP RX=0、CSI_DATA=0；Jetson没有连接或切网。该结果确认ESP Open AP启动链路，不代表已验证Jetson业务帧CSI或packet_id关联。
+- 离线回归仍为84项（83通过、1跳过），新增初始化守卫7项通过，compileall通过；ESP-IDF 5.5.5 build app hash与烧录版本一致。
+- 最小PoC仍要求：同一CSI_DATA直接恢复的 `(run_id, packet_id)` 同时匹配 sender 与 ESP CRC-valid UDP_RX，且该记录含有效CSI。
 
 ## CSI 项目入口
 
@@ -19,6 +17,7 @@
 - [Open AP 离线实现与构建报告](csi/ESP32测试/结果/open_ap_poc_offline_20261027.md)
 - [Open AP 首轮 ESP-only sanity 结果](csi/ESP32测试/结果/open_ap_poc_esp_sanity_20261028.md)
 - [Open AP 初始化顺序修复报告](csi/ESP32测试/结果/open_ap_init_order_fix_20261028.md)
+- [Open AP app 烧录与 ESP-only sanity 报告](csi/ESP32测试/结果/open_ap_poc_app_flash_sanity_20261028.md)
 - [路线调研和备选平台资料](csi/CSI当前路线与PoC验证.md)
 - [历史资料归档](归档/README.md)
 
