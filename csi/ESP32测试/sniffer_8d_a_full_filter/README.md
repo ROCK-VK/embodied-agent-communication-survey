@@ -1,8 +1,8 @@
 # sniffer-8d CSI-centric：当前 OPEN_AP_POC / 历史 DUAL_DIAG
 
-更新：2026-10-27。当前唯一推进的实机目标是 Open SoftAP 明文 UDP → 同记录 CSI_DATA；不再开展 WPA2 handshake/M1–M4 捕获。
+更新：2026-10-28。当前唯一推进的实机目标是 Open SoftAP 明文 UDP → 同记录 CSI_DATA；不再开展 WPA2 handshake/M1–M4 捕获。
 
-## 当前：OPEN_AP_POC（已离线实现，未烧录）
+## 当前：OPEN_AP_POC（首轮 app-only 烧录成功，ESP-only sanity 未通过）
 
 - 独立模式 `OPEN_AP_POC`；原 `PROBE`、`HANDSHAKE_DIAG`、`HANDSHAKE_DUAL_DIAG` 保留。
 - 运行时命令 `CFG_OPEN_AP,2,<SSID>` 配置 2.4 GHz、channel 2、HT20、`WIFI_AUTH_OPEN` SoftAP；SSID 默认 `CSI-C5-OPEN-POC`，不保存到 NVS。ESP UDP receiver 监听端口 39001。
@@ -10,8 +10,9 @@
 - 复用 `udp_probe_protocol.py` 里的 48-byte CSID payload。ESP socket CRC-valid UDP_RX 是接收侧 ground truth；host 只有从同一条有效 CSI_DATA 恢复到相同 `run_id/packet_id` 才给出 PoC PASS，不用时间或序号猜测。
 - Jetson发送：`python tools/send_open_ap_probe.py --destination <ESP_AP_IP> --run-id <整数> --output <私有目录>/sender.jsonl`。默认20包、150ms间隔，可用 `--count` 降至1–20；每次运行使用新日志路径。
 - ESP UART采集：`python tools/capture_open_ap_poc.py --port COM10 --stop-file <私有目录>/STOP --output <新的私有目录>`。工具将自动配置SoftAP并ARM，最多300秒；它不会改Jetson网络，也不会发业务UDP。只在用户现场确认后才手动切换Jetson。
-- 离线验证：完整 Python unittest运行77项，76项通过、1项跳过；Open AP专项9项全部通过；4个新增Python工具 `py_compile`通过。IDF 5.5.5/Python 3.11.2 build成功，app 963,984 bytes，SHA-256 `312238DB6B43134EF8AE2CAAE77723C07D114CC0C29AA5316CFDBCA26F3A34FA`。未烧录、未启动AP、未发送UDP，尚无真实 Open AP / CSI 结果。
-- 实验室顺序：先核实板上固件并完成 ESP-only SoftAP/channel/BW/UDP/CSI sanity；之后另行通知用户，取得明确确认后用户手动将 Jetson USB Wi-Fi 切到 SoftAP。只做一轮20包，不自动重试。Jetson `eth0`、ROS/DDS、Go2/MID360 不操作。
+- 离线验证：完整 Python unittest运行77项，76项通过、1项跳过；Open AP专项9项全部通过；4个新增Python工具 `py_compile`通过。IDF 5.5.5/Python 3.11.2 build成功，app 963,984 bytes，SHA-256 `312238DB6B43134EF8AE2CAAE77723C07D114CC0C29AA5316CFDBCA26F3A34FA`。
+- 首轮现场：app-only写入`0x10000`并经esptool校验。收到 `CFG_OPEN_AP` 后出现 `ESP_ERR_WIFI_NOT_STARTED (0x3002)`；没有获得 `OPEN_AP_READY`、channel/BW读回或UDP server ready。错误输出缺少源码行号，具体API尚未确认。详情见[首轮 ESP-only sanity结果](../结果/open_ap_poc_esp_sanity_20261028.md)。本轮到此停止，没有Jetson切网、没有发送UDP，也没有CSI_DATA/packet_id结果。
+- 下一步：先离线核对SoftAP初始化中Wi-Fi启动状态要求，修复后重新做build；新的ESP-only sanity需另行安排。只有Sanity通过后才告知用户并等待其明确确认，再由用户手动切Jetson USB Wi-Fi；不自动重试。Jetson `eth0`、ROS/DDS、Go2/MID360 不操作。
 
 构建与边界见[Open AP离线实现与构建报告](../结果/open_ap_poc_offline_20261027.md)。
 
