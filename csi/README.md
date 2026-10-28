@@ -16,7 +16,7 @@
 
 ## 当前实验顺序
 
-1. 实验室接入 ESP 后先确认固件，再决定是否 app-only 烧录；完成 ESP 自身 SoftAP/channel/BW/UDP/CSI sanity。
+1. 当前修复固件已 app-only 烧录且 ESP-only sanity 通过；后续不重复烧录，开始下一阶段前先由用户确认是否进入 Jetson 手动切网。
 2. 在用户明确确认后，由用户手动将 Jetson 的 USB Wi-Fi 切到 ESP Open AP；eth0/ROS/Go2/MID360 不动。
 3. Jetson 发送 20 个、每个 UDP payload 48 bytes 的 CSID probe，默认间隔 150 ms；ESP capture 工具不操作 Jetson，也不发送 UDP。
 4. 停止 ESP 后离线生成 `packet_id_to_csi.csv` 和 summary。至少一个相同 `(run_id, packet_id)` 同时出现在 sender log、ESP CRC-valid UDP_RX 和一条 CSI-valid CSI_DATA 中，才可标记最小 PoC PASS。
