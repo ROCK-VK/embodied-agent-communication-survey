@@ -1,24 +1,40 @@
-# 机器狗通信协议与 CSI 调研
+# 机器狗无线数据传输与 Wi-Fi CSI 关联
 
-当前 CSI 实验阶段已调整为 ESP32-C5 Open SoftAP 明文 UDP PoC：Jetson USB Wi-Fi 作为普通 STA，连接 ESP32-C5 的 2.4 GHz/channel 2/HT20 开放网络，发送带 `run_id/packet_id/CRC32` 的小 UDP probe；ESP 同时接收 UDP 并通过 CSI callback 输出带 frame/payload/CSI 的原子记录。
+本项目研究机器狗运动和上传传感器数据时，无线信道状态信息（CSI）如何变化，并建立可验证的数据关联。目前先解决 **Jetson 发送的数据包与接收端 CSI 的帧级匹配**；位置、LiDAR 和视觉数据属于后续阶段。
 
-## 当前进度
+## 当前实验路线
 
-- Open AP 初始化修复固件已 app-only 烧录到 `0x10000`；esptool hash verification通过，bootloader、partition table、NVS未写入。运行 app：966,736 bytes，SHA-256 `351D50A90748D199ACF198EC52C5CCBE61401B64A05796107D4A9892A121C986`。
-- ESP-only 15秒 sanity 实机通过：28个不同初始化 API 全部 ESP_OK；OPEN_AP_READY、channel 2 / 20 MHz读回、CSI capture ACK、UDP server bind ready、STOP/FINAL均正常。queue/raw/CSI drop、截断、UART写错误和host transport/parser errors全为0。
-- 本次没有 station 或业务UDP，所以 UDP RX=0、CSI_DATA=0；Jetson没有连接或切网。该结果确认ESP Open AP启动链路，不代表已验证Jetson业务帧CSI或packet_id关联。
-- 离线回归仍为84项（83通过、1跳过），新增初始化守卫7项通过，compileall通过；ESP-IDF 5.5.5 build app hash与烧录版本一致。
-- 最小PoC仍要求：同一CSI_DATA直接恢复的 `(run_id, packet_id)` 同时匹配 sender 与 ESP CRC-valid UDP_RX，且该记录含有效CSI。
+- **发送端：**机器狗搭载的 Jetson，通过 Wi-Fi 发送带 `run_id`、`packet_id` 和 CRC32 的 UDP 测试包。
+- **接收端：**Ubuntu Linux 工作站通过独立 Intel AX210 被动监听无线帧，使用 PicoScenes 记录 CSI；板载 Wi-Fi 用于日常联网。
+- **管理连接：**Windows 本机通过 RJ45 连接 Linux 工作站。这条管理线不连接机器狗或 Jetson。
 
-## CSI 项目入口
+目标关联链条：
 
-- [当前方案、离线验证和后续实验步骤](csi/README.md)
-- [ESP32-C5 固件与 Open AP capture流程](csi/ESP32测试/sniffer_8d_a_full_filter/README.md)
-- [Open AP 离线实现与构建报告](csi/ESP32测试/结果/open_ap_poc_offline_20261027.md)
-- [Open AP 首轮 ESP-only sanity 结果](csi/ESP32测试/结果/open_ap_poc_esp_sanity_20261028.md)
-- [Open AP 初始化顺序修复报告](csi/ESP32测试/结果/open_ap_init_order_fix_20261028.md)
-- [Open AP app 烧录与 ESP-only sanity 报告](csi/ESP32测试/结果/open_ap_poc_app_flash_sanity_20261028.md)
-- [路线调研和备选平台资料](csi/CSI当前路线与PoC验证.md)
-- [历史资料归档](归档/README.md)
+```text
+Jetson 测试 packet_id → 实际 Wi-Fi Data 帧 / MPDU → PicoScenes CSI record
+```
 
-公开仓库仅包含自有源码、测试和脱敏报告。真实 SSID/PSK、MAC、现场IP、原始CSI/frame、PCAP、sender/receiver私有日志和凭据不上传。
+## 最新进展
+
+2026 年 11 月 4 日，首次完成测试数据包与 CSI 的最小帧级关联：60 个 UDP 测试包全部被应用接收；旁路抓包中解密并校验出 52 个唯一 ID，其中 **46 个**对应的完整 MPDU 与各自一条 PicoScenes 记录中的 MPDU 逐字节一致。这些记录均含非零、结构检查通过的 CSI 原始数据。
+
+随后在同一 Wi-Fi 会话下，对三种 UDP 负载大小各发送 20 包：
+
+| UDP 负载大小 | 应用有效接收 | 无线帧中恢复 ID | 唯一匹配到 CSI 记录 |
+|---:|---:|---:|---:|
+| 48 字节 | 20/20 | 17/20 | 16/20 |
+| 500 字节 | 20/20 | 18/20 | 18/20 |
+| 1200 字节 | 20/20 | 15/20 | 13/20 |
+
+关联依据是实际 MPDU 的完整字节一致，不依赖时间最近或记录顺序。详见[实验方法与匿名结果](csi/Linux测试/结果/公开汇总_20261104.md)。
+
+## 当前边界与下一步
+
+- 旁路抓包或 CSI 中未匹配的包，原因尚未确认；不能把它们直接当作应用传输丢包。
+- 每组仅测试 20 包，尚不能据此判断不同负载大小的长期捕获率，也不能假设一个 UDP 包对应一个 Wi-Fi 帧或一条 CSI。
+- 已对匹配记录的 CSI 原始数据进行结构检查；CSI 数值解码、物理质量、重传、聚合、分片以及长期稳定性仍需验证。
+- 后续先分析未匹配原因、复核 CSI 解码并开展重复实验，再考虑接入机器狗位置、LiDAR 和视觉样本。
+
+## 数据说明
+
+本仓库公开匿名实验方法与结果。原始无线帧、CSI、握手、设备标识和网络凭据保留在本地，不随仓库发布。
