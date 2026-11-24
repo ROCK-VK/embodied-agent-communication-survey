@@ -75,5 +75,21 @@ class IndexTest(unittest.TestCase):
         out=index.build(self.root)
         self.assertEqual(out['samples'][0]['position_associations'],[association])
 
+    def test_pose_age_and_direct_receiver_directory(self):
+        source=self.root/'capture-20261104-124200'
+        sender=source/'sender_packets.jsonl'
+        rows=index.read_jsonl(sender)
+        rows[0]['pose_at_send']={'available':True,'age_ns':3,
+                                 'observation':{'receipt':{'monotonic_ns':7},'position':[1,2,3]}}
+        sender.write_text('\n'.join(map(json.dumps,rows)),encoding='utf8')
+        direct=self.root/'multimodal-20261104-g7PR7G/received'
+        result=index.build(self.root,rx=direct,csi_file=self.root/'multimodal-20261104-g7PR7G/rx_6_261104_124504.csi')
+        packet=result['samples'][0]['chunks'][0]['packets'][0]
+        self.assertEqual(packet['pose_at_send']['observation']['position'],[1,2,3])
+        rows[0]['pose_at_send']['age_ns']=2
+        sender.write_text('\n'.join(map(json.dumps,rows)),encoding='utf8')
+        with self.assertRaisesRegex(ValueError,'pose receipt age'):
+            index.build(self.root,rx=direct,csi_file=self.root/'multimodal-20261104-g7PR7G/rx_6_261104_124504.csi')
+
 
 if __name__=='__main__': unittest.main()

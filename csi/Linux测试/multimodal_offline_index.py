@@ -100,7 +100,8 @@ def build(root, source=None, rx=None, derived=None, csi_file=None):
     verified = read_json(derived/'multimodal_verified_private.json')
     cross = read_json(derived/'crosscheck_private.json')
     sender = read_jsonl(source/'sender_packets.jsonl')
-    receiver = read_jsonl(rx/'received/receiver_packets.jsonl')
+    received_dir = rx if (rx/'receiver_packets.jsonl').is_file() else rx/'received'
+    receiver = read_jsonl(received_dir/'receiver_packets.jsonl')
     run = manifest['run_id']; samples = {x['sample_id']: x for x in manifest['samples']}
     if len(samples) != len(manifest['samples']): raise ValueError('duplicate sample')
     send = {}
@@ -149,7 +150,7 @@ def build(root, source=None, rx=None, derived=None, csi_file=None):
         data=(source/sample['filename']).read_bytes()
         if len(data)!=sample['size'] or hashlib.sha256(data).hexdigest()!=sample['sha256']:
             raise ValueError('source sample digest mismatch')
-        received_file=rx/'received'/('sample_%d.bin'%sid)
+        received_file=received_dir/('sample_%d.bin'%sid)
         if received_file.exists() and hashlib.sha256(received_file.read_bytes()).hexdigest()!=sample['sha256']:
             raise ValueError('receiver sample digest mismatch')
         chunks=[]
@@ -158,9 +159,14 @@ def build(root, source=None, rx=None, derived=None, csi_file=None):
             for key,row in send.items():
                 if row['sample_id']!=sid or row['chunk_index']!=idx: continue
                 csi=[{**x,'receiver_system_ns':times[x['record']]} for x in matches.get(key, [])]
+                pose=row.get('pose_at_send')
+                if pose is not None and pose.get('available'):
+                    actual_age=row['send_mono_ns']-pose['observation']['receipt']['monotonic_ns']
+                    if actual_age < 0 or pose.get('age_ns') != actual_age:
+                        raise ValueError('invalid pose receipt age')
                 packets.append({'packet_id':row['packet_id'],'repeat':row.get('repeat'),
                                 'send_monotonic_ns':row['send_mono_ns'],'send_wall_ns':row.get('wall_ns'),
-                                'receiver_events':rec.get(key, []),'csi_records':csi})
+                                'receiver_events':rec.get(key, []),'pose_at_send':pose,'csi_records':csi})
             chunks.append({'chunk_index':idx,'packets':packets})
         sample_rows.append({'sample_id':sid,'filename':sample['filename'],'sha256':sample['sha256'],
                             'size':sample['size'],'position_associations':associations.get(sid,[]),'chunks':chunks})
@@ -170,9 +176,9 @@ def build(root, source=None, rx=None, derived=None, csi_file=None):
     return {'schema_version':1,'run_id':run,'evidence':'existing locally verified decrypted MPDU and exact PCAP crosscheck; this index does not itself decrypt',
             'clocks':{'jetson_send':'monotonic_ns and wall_ns, sender boot identity not recorded',
                       'linux_csi':'RxSBasic v4 systemTime ns (receiver clock)',
-                      'lidar':'raw type 0; MID360 protocol specifies unsynchronized sensor power-on clock; verify firmware',
-                      'camera':'cached frame acquisition time and frameset unknown',
-                      'position':'only explicit input associations; no cross-clock or nearest-neighbor inference'},
+                      'lidar':'raw device timestamp and Jetson receipt time, as recorded in capture metadata; no clock conversion',
+                      'camera':'frame timestamp and domain as recorded in capture metadata; cached legacy captures may lack them; no clock conversion',
+                      'position':'per-packet pose, if supplied, uses Jetson receipt time only; raw robot clock and coordinate semantics unverified; no cross-clock inference'},
             'capture_metadata':meta,'samples':sample_rows,'timing':timing,
             'counts':{'sender_packets':len(send),'received_packet_ids':len(rec),'matched_packet_ids':len(matches),'matched_csi_records':len(refs)}}
 
