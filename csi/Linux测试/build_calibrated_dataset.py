@@ -147,11 +147,15 @@ def build_dataset(source_dir, rx_dir, work_dir, csi_file, out_dir, sync_before=N
             if hashlib.sha256(rx_raw).hexdigest() != s["sha256"]:
                 raise ValueError(f"received sample {sid} SHA-256 mismatch")
             # For compressed LiDAR, verify lossless decompression matches raw file SHA-256
-            if s["kind"] == 2:
-                raw_name = s["filename"].replace("_lidar.zlib", "_lidar_raw.bin")
+            if s["kind"] in (2, 5):
+                raw_name = s["filename"].replace("_lidar.zlib", "_lidar_raw.bin").replace("_lidar.m36d", "_lidar_raw.bin")
                 raw_path = source_dir / raw_name
                 if raw_path.exists():
-                    decomp = zlib.decompress(rx_raw)
+                    if s["kind"] == 5:
+                        import mid360_codec as m360
+                        decomp = m360.decode_mid360_lossless(rx_raw)
+                    else:
+                        decomp = zlib.decompress(rx_raw)
                     if hashlib.sha256(decomp).hexdigest() != hashlib.sha256(raw_path.read_bytes()).hexdigest():
                         raise ValueError(f"decompressed LiDAR sample {sid} mismatch")
 
@@ -278,7 +282,7 @@ def build_dataset(source_dir, rx_dir, work_dir, csi_file, out_dir, sync_before=N
         "csi_minus_send_calibrated_ms",
         "clock_uncertainty_ms",
     ]
-    kind_names = {1: "rgb", 2: "lidar_zlib", 3: "meta", 4: "lidar_raw"}
+    kind_names = {1: "rgb", 2: "lidar_zlib", 3: "meta", 4: "lidar_raw", 5: "lidar_delta"}
     cal_air_diffs_ms = []
     pose_ages_ms = []
 
@@ -393,8 +397,8 @@ def build_dataset(source_dir, rx_dir, work_dir, csi_file, out_dir, sync_before=N
             })
             rgb_total = max((r["chunk_count"] for r in fpkts if r["kind"] == 1), default=0)
             rgb_cov = len({r["chunk_index"] for r in fpkts if r["kind"] == 1 and r["packet_id"] in matches_by_pid})
-            lid_total = max((r["chunk_count"] for r in fpkts if r["kind"] == 2), default=0)
-            lid_cov = len({r["chunk_index"] for r in fpkts if r["kind"] == 2 and r["packet_id"] in matches_by_pid})
+            lid_total = max((r["chunk_count"] for r in fpkts if r["kind"] in (2, 5)), default=0)
+            lid_cov = len({r["chunk_index"] for r in fpkts if r["kind"] in (2, 5) and r["packet_id"] in matches_by_pid})
 
             cam = fmeta.get("camera", {})
             lid = fmeta.get("lidar", {})

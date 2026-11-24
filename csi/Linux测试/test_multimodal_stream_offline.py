@@ -12,6 +12,7 @@ import unittest
 import zlib
 
 import clock_sync_probe as clk
+import mid360_codec as m360
 import multimodal_stream as stream
 import multimodal_udp as legacy
 import build_calibrated_dataset as bcd
@@ -141,6 +142,24 @@ class TestMultimodalStreamOffline(unittest.TestCase):
             summary = json.loads((out / "receiver_summary.json").read_text(encoding="utf-8"))
             self.assertEqual(summary["samples_complete"], 1)
             self.assertEqual(zlib.decompress((out / "sample_1.bin").read_bytes()), raw_lidar)
+
+
+    def test_mid360_lossless_delta_codec_roundtrip(self):
+        # Build synthetic 5-packet MID360 Type-1 blob with signed +/- millimeter XYZ
+        pkts = []
+        for p in range(5):
+            hdr = struct.pack("<BHHHHBBB", 1, 1380, 4750, 96, 100 + p, 0, 1, 0) + b"\x00" * 16 + struct.pack("<Q", 1000000 + p * 480000)
+            pts = b"".join(
+                struct.pack("<iiiBB", -3000 + p * 50 + i * 7, 1500 - i * 11, -200 + (i % 9) * 3, i % 256, 0)
+                for i in range(96)
+            )
+            pkts.append(hdr + pts)
+        raw = b"".join(pkts)
+        comp = m360.encode_mid360_lossless(raw, level=3)
+        self.assertLess(len(comp), len(raw))
+        dec = m360.decode_mid360_lossless(comp)
+        self.assertEqual(dec, raw)
+        self.assertEqual(hashlib.sha256(dec).hexdigest(), hashlib.sha256(raw).hexdigest())
 
 
 if __name__ == "__main__":

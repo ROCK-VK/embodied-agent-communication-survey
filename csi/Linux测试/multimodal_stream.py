@@ -35,6 +35,7 @@ KIND_RGB = 1
 KIND_LIDAR_ZLIB = 2
 KIND_META = 3
 KIND_LIDAR_RAW = 4
+KIND_LIDAR_DELTA = 5
 
 
 def clock():
@@ -314,12 +315,12 @@ def run_receiver(args):
 
 
 def run_sender(args):
-    if not 0 < args.pps <= 120:
-        raise ValueError("pps out of bounds (0, 120]")
+    if not 0 < args.pps <= 400:
+        raise ValueError("pps out of bounds (0, 400]")
     if not 1 <= args.repeat <= 3:
         raise ValueError("repeat out of bounds [1, 3]")
-    if not 1 <= args.frames <= 60:
-        raise ValueError("frames out of bounds [1, 60]")
+    if not 1 <= args.frames <= 400:
+        raise ValueError("frames out of bounds [1, 400]")
     if not 64 <= args.block_size <= MAX_BLOCK:
         raise ValueError(f"block_size out of bounds [64, {MAX_BLOCK}]")
 
@@ -327,6 +328,7 @@ def run_sender(args):
     import cv2
     import numpy as np
     import pyrealsense2 as rs
+    import mid360_codec as m360
     from unitree_sdk2py.core.channel import ChannelFactoryInitialize, ChannelSubscriber
     from unitree_sdk2py.idl.unitree_go.msg.dds_ import SportModeState_
 
@@ -406,6 +408,8 @@ def run_sender(args):
             args.out / "sender_packets.jsonl"
         ).open("x", encoding="utf-8") as pkt_log:
             for fidx in range(args.frames):
+                if fidx > 0 and args.stop_file and args.stop_file.exists():
+                    break
                 t_frame_loop_start = time.monotonic()
 
                 # 1. Grab D435i frameset (pipeline stays open -> zero stop delay!)
@@ -425,23 +429,29 @@ def run_sender(args):
                 with lock:
                     pose_lidar_end = pose_at_time(latest[0], time.monotonic_ns(), args.max_pose_age_ms * 1_000_000)
 
-                # 3. Encode RGB JPEG + lossless zlib-compress LiDAR scan
+                # 3. Encode RGB JPEG + lossless delta+byteplane-compressed LiDAR scan
                 ok, encoded = cv2.imencode(
                     ".jpg", np.asanyarray(color.get_data()), [cv2.IMWRITE_JPEG_QUALITY, args.jpeg_quality]
                 )
                 if not ok:
                     raise RuntimeError("JPEG encoding failed")
                 rgb_bytes = encoded.tobytes()
-                lidar_z_bytes = zlib.compress(raw_lidar, level=1)
+                if args.lidar_codec == "delta":
+                    lidar_tx_bytes = m360.encode_mid360_lossless(raw_lidar, level=3)
+                    lidar_tx_kind = KIND_LIDAR_DELTA
+                    lidar_tx_name = f"frame_{fidx:03d}_lidar.m36d"
+                else:
+                    lidar_tx_bytes = zlib.compress(raw_lidar, level=1)
+                    lidar_tx_kind = KIND_LIDAR_ZLIB
+                    lidar_tx_name = f"frame_{fidx:03d}_lidar.zlib"
 
                 rgb_name = f"frame_{fidx:03d}_rgb.jpg"
                 lidar_raw_name = f"frame_{fidx:03d}_lidar_raw.bin"
-                lidar_z_name = f"frame_{fidx:03d}_lidar.zlib"
                 meta_name = f"frame_{fidx:03d}_meta.json"
 
                 (args.out / rgb_name).write_bytes(rgb_bytes)
                 (args.out / lidar_raw_name).write_bytes(raw_lidar)
-                (args.out / lidar_z_name).write_bytes(lidar_z_bytes)
+                (args.out / lidar_tx_name).write_bytes(lidar_tx_bytes)
 
                 frame_meta = {
                     "frame_idx": fidx,
@@ -455,8 +465,9 @@ def run_sender(args):
                     },
                     "lidar": {
                         **lidar_summary,
-                        "compressed_bytes": len(lidar_z_bytes),
-                        "compressed_sha256": hashlib.sha256(lidar_z_bytes).hexdigest(),
+                        "codec": args.lidar_codec,
+                        "compressed_bytes": len(lidar_tx_bytes),
+                        "compressed_sha256": hashlib.sha256(lidar_tx_bytes).hexdigest(),
                     },
                     "pose_at_camera_receipt": pose_cam,
                     "pose_at_lidar_end": pose_lidar_end,
@@ -464,14 +475,16 @@ def run_sender(args):
                 meta_bytes = json.dumps(frame_meta, indent=2).encode("utf-8")
                 (args.out / meta_name).write_bytes(meta_bytes)
 
-                # 4. Transmit RGB, compressed full LiDAR scan, and frame metadata immediately
+                # 4. Transmit RGB, compressed full LiDAR scan, and frame metadata with deadline pacing
                 frame_items = [
                     (KIND_RGB, rgb_name, rgb_bytes),
-                    (KIND_LIDAR_ZLIB, lidar_z_name, lidar_z_bytes),
+                    (lidar_tx_kind, lidar_tx_name, lidar_tx_bytes),
                     (KIND_META, meta_name, meta_bytes),
                 ]
                 frame_sample_ids = []
                 frame_pid_start = pid
+                interval_s = (1.0 / args.pps) if args.pps > 0 else 0.0
+                next_send_t = time.perf_counter()
                 for kind, name, payload in frame_items:
                     sid = sample_id
                     sample_id += 1
@@ -490,6 +503,10 @@ def run_sender(args):
                     })
                     for rep in range(args.repeat):
                         for idx in range(count):
+                            if interval_s > 0:
+                                now_p = time.perf_counter()
+                                if next_send_t > now_p:
+                                    time.sleep(next_send_t - now_p)
                             with lock:
                                 send_mono = time.monotonic_ns()
                                 pose_snap = pose_at_time(
@@ -520,8 +537,7 @@ def run_sender(args):
                             })
                             pkt_log.write(json.dumps(row) + "\n")
                             pid += 1
-                            if args.pps > 0:
-                                time.sleep(1.0 / args.pps)
+                            next_send_t += interval_s
                 pkt_log.flush()
                 frames_manifest.append({
                     "frame_idx": fidx,
@@ -598,10 +614,12 @@ def main():
     s.add_argument("--warmup-frames", type=int, default=60)
     s.add_argument("--jpeg-quality", type=int, default=65)
     s.add_argument("--lidar-ms", type=float, default=100.0)
+    s.add_argument("--lidar-codec", choices=["delta", "zlib"], default="delta")
     s.add_argument("--lidar-bind", required=True)
     s.add_argument("--lidar-source", required=True)
     s.add_argument("--dds-iface", default="eth0")
     s.add_argument("--max-pose-age-ms", type=int, default=250)
+    s.add_argument("--stop-file", type=pathlib.Path, default=None)
 
     r = sub.add_parser("receive")
     r.add_argument("--out", required=True, type=pathlib.Path)
