@@ -54,9 +54,12 @@ def main():
     parser.add_argument('--pps', type=float, default=15)
     parser.add_argument('--repeat', type=int, default=2)
     parser.add_argument('--max-pose-age-ms', type=int, default=250)
+    parser.add_argument('--warmup-frames', type=int, default=60)
     args = parser.parse_args()
     if not 0 < args.pps <= 30 or not 1 <= args.repeat <= 3:
         parser.error('pps/repeat outside experimental bounds')
+    if not 1 <= args.warmup_frames <= 150:
+        parser.error('warmup-frames must be 1..150')
     args.out.mkdir(parents=True, exist_ok=False)
     import pyrealsense2 as rs
     import numpy as np
@@ -98,7 +101,7 @@ def main():
     try:
         pipeline.start(config)
         started = True
-        for _ in range(5):
+        for _ in range(args.warmup_frames):
             frames = pipeline.wait_for_frames(3000)
         received = clock()
         color = frames.get_color_frame()
@@ -112,7 +115,8 @@ def main():
         if not ok:
             raise RuntimeError('JPEG encoding failed')
         (args.out / 'rgb.jpg').write_bytes(encoded.tobytes())
-        camera = {'frameset_receipt': received, 'color': image_info, 'depth': depth_info,
+        camera = {'frameset_receipt': received, 'warmup_frames': args.warmup_frames,
+                  'color': image_info, 'depth': depth_info,
                   'frameset_basis': 'same wait_for_frames return; exposure clocks not assumed synchronized',
                   'color_file': 'rgb.jpg', 'depth_uploaded': False}
     finally:
