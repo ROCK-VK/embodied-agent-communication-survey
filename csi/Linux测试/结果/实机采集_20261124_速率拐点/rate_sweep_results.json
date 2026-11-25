@@ -1,0 +1,53 @@
+[
+  {
+    "run_id": 2026112407,
+    "target_pps": 120.0,
+    "packets_sent": 255,
+    "csi_unique_pkts": 229,
+    "csi_records": 231,
+    "csi_coverage_pct": 89.8,
+    "pcap_unique_pkts": 230,
+    "pcap_coverage_pct": 90.2,
+    "csi_span_s": 2.117,
+    "sec_per_full_frame": 0.706,
+    "csi_eff_pkt_pps": 108.19,
+    "csi_eff_rec_rps": 109.14,
+    "csi_gap_med_ms": 8.35,
+    "csi_gap_p95_ms": 16.67,
+    "csi_gap_max_ms": 24.99
+  },
+  {
+    "run_id": 2026112408,
+    "target_pps": 200.0,
+    "packets_sent": 255,
+    "csi_unique_pkts": 218,
+    "csi_records": 218,
+    "csi_coverage_pct": 85.49,
+    "pcap_unique_pkts": 236,
+    "pcap_coverage_pct": 92.55,
+    "csi_span_s": 1.265,
+    "sec_per_full_frame": 0.422,
+    "csi_eff_pkt_pps": 172.36,
+    "csi_eff_rec_rps": 172.36,
+    "csi_gap_med_ms": 5.0,
+    "csi_gap_p95_ms": 10.06,
+    "csi_gap_max_ms": 14.99
+  },
+  {
+    "run_id": 2026112409,
+    "target_pps": 300.0,
+    "packets_sent": 255,
+    "csi_unique_pkts": 222,
+    "csi_records": 226,
+    "csi_coverage_pct": 87.06,
+    "pcap_unique_pkts": 230,
+    "pcap_coverage_pct": 90.2,
+    "csi_span_s": 0.846,
+    "sec_per_full_frame": 0.282,
+    "csi_eff_pkt_pps": 262.28,
+    "csi_eff_rec_rps": 267.01,
+    "csi_gap_med_ms": 3.33,
+    "csi_gap_p95_ms": 6.66,
+    "csi_gap_max_ms": 19.95
+  }
+]
